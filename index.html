@@ -1,221 +1,526 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Survival Challenge</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- FIREBASE (NE DIRAJ) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
 <style>
-body { margin:0; padding:0; background:#fff8e6; font-family:"Comic Sans MS","Marker Felt",sans-serif; overflow:hidden; }
-body:after { content:""; position:fixed; width:100%; height:100%; top:0; left:0; pointer-events:none;
-  background-image: repeating-linear-gradient(rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 3px, transparent 3px, transparent 6px);
-  opacity:0.4; }
+:root{
+  --ink:#2b1b10;
+  --paper:#f7eed6;
+  --paper2:#f3e5c6;
+  --shadow: rgba(0,0,0,.25);
+  --shadow2: rgba(0,0,0,.18);
+  --btnText:#2b1b10;
+  --btnHi:#ffe69c;
+  --btnLo:#e2b85a;
+  --glass: rgba(0,0,0,.20);
+  --glassBorder: rgba(255,255,255,.18);
+  --dangerHi:#ff7b7b;
+  --dangerLo:#d64545;
+  --okHi:#5fe36b;
+  --okLo:#1ea13a;
 
-.title { font-size:60px; font-weight:bold; text-align:center; color:#ff7f50; text-shadow:3px 3px 0 #000; margin-top:40px; }
-.subtitle { text-align:center; font-size:22px; color:#333; }
+  --safeTop: env(safe-area-inset-top, 0px);
+  --safeBottom: env(safe-area-inset-bottom, 0px);
+  --safeLeft: env(safe-area-inset-left, 0px);
+  --safeRight: env(safe-area-inset-right, 0px);
+}
 
-button { background:#ffe980; border:4px solid #000; border-radius:8px; padding:10px 20px; font-size:22px; cursor:pointer; font-family:inherit; transition:transform 0.1s; }
-button:hover { transform:scale(1.05); }
-button:active { transform:scale(0.92); }
-button:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html, body{ height:100%; }
+body{
+  margin:0; padding:0; overflow:hidden;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--ink);
+  touch-action: manipulation;
 
-#startScreen { width:100%; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:10px; }
-#gameCodeInput { font-size:30px; padding:5px; margin:10px; width:220px; text-align:center; border:4px solid #000; border-radius:8px; background:#ffffffcc; }
-#nameInput { font-size:22px; padding:8px; width:220px; text-align:center; border:4px solid #000; border-radius:8px; background:#ffffffcc; }
-
-#gameScreen { position:fixed; inset:0; width:100vw; height:100vh; overflow:hidden; display:none; }
-
-#topBar { position:absolute; top:10px; left:50%; transform:translateX(-50%); display:flex; gap:12px; z-index:30; align-items:center; }
-.playerHearts { font-size:18px; padding:8px 10px; background:#fffbd1; border:4px solid #000; border-radius:10px; cursor:pointer; user-select:none; white-space:nowrap; }
-.smallPill { font-size:16px; padding:8px 10px; background:#e8fff0; border:4px solid #000; border-radius:10px; user-select:none; white-space:nowrap; }
-
-#hungerArea { position:absolute; left:12px; bottom:12px; z-index:30; background:#ffe0b2; border:4px solid #000; border-radius:10px; padding:10px 12px; font-size:20px; box-shadow:3px 3px 0 #000; }
-
-#buttonBar { position:absolute; right:12px; bottom:12px; top:auto; display:flex; flex-direction:column; gap:10px; z-index:30; }
-
-#tableArea {
-  position:absolute; top:90px; left:16px; right:16px; bottom:110px; padding:18px;
-  border:6px solid #000; border-radius:22px; box-shadow:6px 6px 0 #000; z-index:10;
+  /* WOOD BACKGROUND (CSS-only) */
   background:
-    repeating-linear-gradient(90deg, rgba(255,210,140,.55) 0px, rgba(255,210,140,.55) 22px, rgba(255,195,120,.55) 22px, rgba(255,195,120,.55) 44px),
-    repeating-linear-gradient(0deg, rgba(0,0,0,.03) 0px, rgba(0,0,0,.03) 2px, transparent 2px, transparent 7px);
-  display:flex; justify-content:space-around; align-items:center; gap:16px;
+    radial-gradient(1200px 600px at 30% 20%, rgba(255,255,255,.18), transparent 60%),
+    radial-gradient(900px 500px at 80% 40%, rgba(0,0,0,.18), transparent 55%),
+    repeating-linear-gradient(90deg,
+      rgba(90,55,30,.55) 0px, rgba(90,55,30,.55) 18px,
+      rgba(120,75,40,.55) 18px, rgba(120,75,40,.55) 36px,
+      rgba(75,45,25,.55) 36px, rgba(75,45,25,.55) 54px
+    ),
+    linear-gradient(#6a3f22, #3d2413);
 }
 
-#cardStackArea, #playerCardChoiceArea {
-  width:min(360px,44vw); height:min(420px,55vh);
-  border-radius:16px; padding:10px; background:rgba(255,255,255,.92);
-  border:4px dashed #000; display:flex; flex-direction:column; text-align:center;
+/* ---------- Common UI ---------- */
+.card{
+  background: linear-gradient(var(--paper), var(--paper2));
+  border: 1px solid rgba(0,0,0,.25);
+  border-radius: 18px;
+  box-shadow: 0 18px 28px var(--shadow), inset 0 2px 0 rgba(255,255,255,.75);
 }
 
-#nightCard, #playedCard {
-  flex:1; background:#fff; border:4px solid #000; border-radius:14px; box-shadow:4px 4px 0 #000;
-  display:flex; align-items:center; justify-content:center; font-size:22px; padding:10px;
+.glass{
+  background: var(--glass);
+  border: 1px solid var(--glassBorder);
+  border-radius: 18px;
+  backdrop-filter: blur(6px);
 }
 
-.nightBtn { position:absolute; left:50%; transform:translateX(-50%); bottom:12px; z-index:35; padding:12px 24px; }
+.pill{
+  font-size:14px;
+  padding:8px 10px;
+  border-radius:14px;
+  background: linear-gradient(var(--paper), var(--paper2));
+  border:1px solid rgba(0,0,0,.25);
+  box-shadow: 0 10px 16px var(--shadow2), inset 0 2px 0 rgba(255,255,255,.7);
+  user-select:none;
+  white-space:nowrap;
+}
 
-#viewingOverlay { position:absolute; inset:0; background:rgba(255,0,0,.18); backdrop-filter:blur(4px);
-  display:none; align-items:flex-start; justify-content:flex-start; padding:16px; z-index:100; }
-#viewingText { color:red; font-size:34px; font-weight:bold; text-shadow:3px 3px 0 #000; margin:0; }
-#closeViewBtn { margin-top:10px; }
+button{
+  border:0;
+  border-radius:16px;
+  padding:12px 16px;
+  font-size:18px;
+  font-weight:800;
+  color: var(--btnText);
+  background: linear-gradient(var(--btnHi), var(--btnLo));
+  box-shadow:
+    0 10px 18px var(--shadow),
+    inset 0 2px 0 rgba(255,255,255,.75),
+    inset 0 -3px 0 rgba(0,0,0,.18);
+  cursor:pointer;
+  transition: transform .08s ease, filter .08s ease;
+}
+button:hover{ filter:brightness(1.03); transform: translateY(-1px); }
+button:active{ transform: translateY(1px) scale(.99); }
+button:disabled{ opacity:.6; cursor:not-allowed; filter:saturate(.7); }
 
-#feed {
-  position:absolute; left:12px; top:90px; z-index:40; width:min(420px,38vw);
-  background:#ffffffd9; border:4px solid #000; border-radius:12px; padding:10px;
-  box-shadow:4px 4px 0 #000;
-}
-#feedTitle { margin:0 0 6px 0; font-size:18px; }
-#feedList { max-height:180px; overflow:auto; font-size:16px; }
-.feedItem { margin:6px 0; padding:6px 8px; border:2px solid #000; border-radius:10px; background:#fff; }
+.btnOk{ background: linear-gradient(var(--okHi), var(--okLo)); color:#0b2a10; }
+.btnDanger{ background: linear-gradient(var(--dangerHi), var(--dangerLo)); color:#2b0b0b; }
 
-/* MODALS */
-.modalBack {
-  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
-  background:rgba(0,0,0,.35); z-index:200;
+.input, .select{
+  font-size:18px;
+  padding:12px 12px;
+  border:2px solid rgba(0,0,0,.35);
+  border-radius:16px;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 10px 18px var(--shadow2), inset 0 2px 0 rgba(255,255,255,.75);
+  outline:none;
+  width:100%;
 }
-.modal {
-  width:min(560px,92vw); background:#fff; border:6px solid #000; border-radius:16px;
-  box-shadow:8px 8px 0 #000; padding:14px;
+
+.small{
+  font-size:14px;
+  opacity:.9;
 }
-.modal h2 { margin:0 0 10px 0; }
-.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; }
-.input {
-  font-size:18px; padding:8px 10px; border:4px solid #000; border-radius:10px; width:220px;
+
+/* ---------- Start Screen ---------- */
+#startScreen{
+  position:fixed; inset:0;
+  padding: calc(16px + var(--safeTop)) calc(16px + var(--safeRight)) calc(18px + var(--safeBottom)) calc(16px + var(--safeLeft));
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  gap:12px;
 }
-.select {
-  font-size:18px; padding:8px 10px; border:4px solid #000; border-radius:10px; width:260px;
+
+.title{
+  margin:0;
+  font-size:44px;
+  font-weight:1000;
+  letter-spacing:.2px;
+  text-align:center;
+  color:#ffeaa3;
+  text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 10px 24px rgba(0,0,0,.35);
 }
-.listBox {
-  border:4px dashed #000; border-radius:12px; padding:10px; background:#fffdf0;
-  max-height:240px; overflow:auto;
+.byline{
+  margin:0;
+  text-align:center;
+  color: rgba(255,255,255,.86);
+  font-size:14px;
+  text-shadow: 0 2px 0 rgba(0,0,0,.35);
 }
-.itemPill {
-  display:flex; justify-content:space-between; align-items:center;
-  border:3px solid #000; border-radius:12px; padding:6px 10px; margin:6px 0;
-  background:#fff;
+.subtitle{
+  margin:0 0 6px 0;
+  text-align:center;
+  font-size:16px;
+  color: rgba(255,255,255,.92);
+  text-shadow: 0 2px 0 rgba(0,0,0,.35);
 }
-.smallBtn {
-  font-size:16px; padding:6px 10px; border:3px solid #000; border-radius:10px;
+
+.startCard{
+  width:min(520px, 100%);
+  padding:14px;
 }
-hr { border:none; border-top:3px dashed #000; margin:10px 0; }
+.startRow{
+  display:flex;
+  gap:10px;
+  width:100%;
+}
+.startRow > *{ flex:1; }
+
+#joinGameBtn{ width:100%; padding:14px 16px; font-size:20px; }
+
+/* ---------- Game Screen ---------- */
+#gameScreen{
+  position:fixed; inset:0;
+  display:none;
+  padding: calc(10px + var(--safeTop)) calc(10px + var(--safeRight)) calc(10px + var(--safeBottom)) calc(10px + var(--safeLeft));
+}
+
+#topBar{
+  position:sticky;
+  top: calc(8px + var(--safeTop));
+  z-index:30;
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+#topLine{
+  display:flex; gap:8px; align-items:center; justify-content:space-between;
+}
+#pillsLine{
+  display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+}
+
+#playersWrap{
+  display:flex; gap:8px; overflow:auto;
+  padding-bottom:6px;
+  -webkit-overflow-scrolling: touch;
+}
+.playerChip{
+  flex:0 0 auto;
+  cursor:pointer;
+}
+
+#mainArea{
+  position:relative;
+  margin-top:10px;
+  height: calc(100% - 210px);
+  min-height: 280px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+#feed{
+  padding:10px;
+}
+#feedTitle{ margin:0 0 8px 0; font-size:14px; font-weight:900; }
+#feedList{
+  max-height:120px;
+  overflow:auto;
+  -webkit-overflow-scrolling: touch;
+}
+.feedItem{
+  margin:6px 0;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,.22);
+  background: rgba(255,255,255,.85);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.75);
+  font-size:14px;
+}
+
+#cards{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+  flex:1;
+  min-height: 140px;
+}
+@media (min-width: 820px){
+  #cards{ grid-template-columns: 1fr 1fr; }
+  #mainArea{ height: calc(100% - 170px); }
+  #feedList{ max-height:150px; }
+}
+
+.cardBox{
+  padding:12px;
+}
+.cardBox h2{
+  margin:0 0 10px 0;
+  font-size:16px;
+  letter-spacing:.3px;
+}
+.cardFace{
+  height: 100%;
+  min-height: 120px;
+  border-radius:16px;
+  border:1px solid rgba(0,0,0,.22);
+  background:
+    radial-gradient(800px 300px at 20% 10%, rgba(255,255,255,.35), transparent 60%),
+    linear-gradient(#fff8e9, #f1e0bd);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  font-size:20px;
+  font-weight:1000;
+  padding:12px;
+}
+
+#bottomBar{
+  position:fixed;
+  left:0; right:0;
+  bottom:0;
+  padding: 10px calc(10px + var(--safeRight)) calc(10px + var(--safeBottom)) calc(10px + var(--safeLeft));
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:center;
+  background: linear-gradient(transparent, rgba(0,0,0,.25));
+  z-index:40;
+}
+
+#bottomBar .card{
+  width:min(920px, 100%);
+  padding:10px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (min-width: 820px){
+  #bottomBar .card{
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  }
+}
+
+#hungerPill{
+  display:flex; align-items:center; justify-content:center;
+  gap:8px;
+  font-weight:900;
+}
+
+#startNightBtn{
+  grid-column: 1 / -1;
+  padding:14px 16px;
+  font-size:20px;
+}
+
+/* ---------- Viewing Overlay ---------- */
+#viewingOverlay{
+  position:fixed; inset:0;
+  display:none;
+  align-items:flex-start;
+  justify-content:flex-start;
+  padding: calc(14px + var(--safeTop)) calc(14px + var(--safeRight)) calc(14px + var(--safeBottom)) calc(14px + var(--safeLeft));
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(6px);
+  z-index:120;
+}
+#viewingText{
+  color:#ffeaa3;
+  font-size:24px;
+  font-weight:1000;
+  text-shadow: 0 3px 0 rgba(0,0,0,.55);
+  margin:0;
+}
+#closeViewBtn{ margin-top:10px; }
+
+/* ---------- Modals (full-screen friendly) ---------- */
+.modalBack{
+  position:fixed; inset:0;
+  display:none;
+  background: rgba(0,0,0,.55);
+  z-index:200;
+  padding: calc(12px + var(--safeTop)) calc(12px + var(--safeRight)) calc(12px + var(--safeBottom)) calc(12px + var(--safeLeft));
+}
+.modal{
+  width:min(760px, 100%);
+  margin:0 auto;
+  max-height: calc(100% - 10px);
+  overflow:auto;
+  -webkit-overflow-scrolling: touch;
+  padding:14px;
+}
+.modal h2{ margin:0 0 10px 0; font-size:20px; }
+.row{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  margin:10px 0;
+}
+.row .grow{ flex:1; min-width: 180px; }
+
+.listBox{
+  border-radius:16px;
+  padding:10px;
+  background: rgba(255,255,255,.80);
+  border:1px dashed rgba(0,0,0,.35);
+  max-height: 46vh;
+  overflow:auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.itemPill{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  border-radius:14px;
+  padding:10px 10px;
+  margin:8px 0;
+  border:1px solid rgba(0,0,0,.22);
+  background: rgba(255,255,255,.90);
+}
+.badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:28px; height:24px; padding:0 8px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,.22);
+  background: rgba(255,255,255,.75);
+  font-weight:1000;
+}
+.icon{ font-size:18px; margin-right:6px; }
+
+.smallBtn{
+  font-size:16px;
+  padding:10px 12px;
+  border-radius:14px;
+}
+
+hr{ border:none; border-top:1px dashed rgba(0,0,0,.35); margin:12px 0; }
 </style>
 </head>
 
 <body>
 
-<!-- START SCREEN -->
+<!-- START -->
 <div id="startScreen">
   <h1 class="title">Survival Challenge</h1>
-<p class="subtitle">(by David Toma)</p>
-  <p class="subtitle">Online multiplayer (room code) — max 4 players</p>
+  <p class="byline">(by David Toma)</p>
+  <p class="subtitle">Mobile-first online multiplayer — max 4 players</p>
 
-  <label>Your name:</label>
-  <input id="nameInput" class="input" type="text" maxlength="14" placeholder="Toma">
+  <div class="card startCard">
+    <div class="startRow">
+      <div>
+        <div class="small" style="font-weight:900; margin:0 0 6px 2px;">Your name</div>
+        <input id="nameInput" class="input" type="text" maxlength="14" placeholder="David" />
+      </div>
+    </div>
 
-  <label>Enter Game Code:</label>
-  <input id="gameCodeInput" type="text" maxlength="6" placeholder="ABCD12">
+    <div style="height:10px"></div>
 
-  <button id="joinGameBtn">Join / Create</button>
-  <p id="firstPlayerInfo">First player becomes CHALLENGER automatically</p>
+    <div class="startRow">
+      <div>
+        <div class="small" style="font-weight:900; margin:0 0 6px 2px;">Room code</div>
+        <input id="gameCodeInput" class="input" type="text" maxlength="6" placeholder="ABCD12" />
+      </div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <button id="joinGameBtn">Join / Create</button>
+
+    <div class="small" style="margin-top:10px;">
+      Tip: open the same link on two phones and enter the same room code.
+    </div>
+  </div>
 </div>
 
-<!-- GAME SCREEN -->
+<!-- GAME -->
 <div id="gameScreen">
 
-  <!-- TOP BAR -->
-  <div id="topBar">
-    <div id="playerHeartsArea"></div>
-    <div id="rolePill" class="smallPill">Role: ...</div>
-    <div id="readyPill" class="smallPill">Ready: ...</div>
+  <div id="topBar" class="glass">
+    <div id="topLine">
+      <div class="pill" id="rolePill">Role: ...</div>
+      <div class="pill" id="readyPill">Ready: ...</div>
+    </div>
+    <div id="playersWrap"></div>
   </div>
 
-  <!-- FEED -->
-  <div id="feed">
-    <p id="feedTitle"><b>Room Feed</b></p>
-    <div id="feedList"></div>
+  <div id="mainArea">
+    <div id="feed" class="card">
+      <p id="feedTitle"><b>Room Feed</b></p>
+      <div id="feedList"></div>
+    </div>
+
+    <div id="cards">
+      <div class="card cardBox">
+        <h2>Night Card (3 sec)</h2>
+        <div id="nightCard" class="cardFace"></div>
+      </div>
+      <div class="card cardBox">
+        <h2>Status</h2>
+        <div id="statusCard" class="cardFace">Join a room to start.</div>
+      </div>
+    </div>
   </div>
 
-  <!-- HUNGER -->
-  <div id="hungerArea">
-    <span>🍗 Hunger:</span>
-    <span id="hungerValue">70</span>/70
+  <div id="bottomBar">
+    <div class="card">
+      <div id="hungerPill" class="pill">
+        🍗 Hunger: <span id="hungerValue">70</span>/70
+      </div>
+      <button id="inventoryBtn">Inventory</button>
+      <button id="tradeBtn">Trade</button>
+      <button id="pleaseBtn">Please</button>
+      <button id="readyBtn" class="btnOk">Ready</button>
+      <button id="startNightBtn" class="btnDanger" disabled>Start Night</button>
+    </div>
   </div>
+</div>
 
-  <!-- BUTTONS -->
-  <div id="buttonBar">
-    <button id="inventoryBtn">Inventory</button>
-    <button id="tradeBtn">Trade</button>
-    <button id="pleaseBtn">Please</button>
-    <button id="skipBtn">Skip / Ready</button>
-  </div>
-
-  <!-- VIEWING -->
-  <div id="viewingOverlay">
+<!-- VIEWING -->
+<div id="viewingOverlay">
+  <div>
     <p id="viewingText">VIEWING...</p>
     <button id="closeViewBtn">Close</button>
   </div>
-
-  <!-- TABLE -->
-  <div id="tableArea">
-    <div id="cardStackArea">
-      <h2>Night Card (3 sec)</h2>
-      <div id="nightCard"></div>
-    </div>
-
-    <div id="playerCardChoiceArea">
-      <h2>Status</h2>
-      <div id="playedCard">Join a room to start.</div>
-    </div>
-  </div>
-
-  <button id="startNightBtn" class="nightBtn">Start Night</button>
 </div>
 
 <!-- INVENTORY MODAL -->
 <div id="invBack" class="modalBack">
-  <div class="modal">
+  <div class="modal card">
     <h2>Inventory</h2>
+    <div class="small">Starter kit is added automatically when you first join a room.</div>
+
     <div class="row">
-      <input id="invItemInput" class="input" placeholder="e.g. Rope">
+      <div class="grow">
+        <input id="invItemInput" class="input" placeholder="e.g. Rope" />
+      </div>
+      <div style="width:110px;">
+        <input id="invQtyInput" class="input" type="number" min="1" value="1" />
+      </div>
       <button id="invAddBtn" class="smallBtn">Add</button>
       <button id="invCloseBtn" class="smallBtn">Close</button>
     </div>
+
     <div id="invList" class="listBox"></div>
-    <p style="margin:10px 0 0 0; font-size:14px; opacity:.8;">
-      Items sync to Firebase: <code>rooms/{room}/players/{id}/inventory</code>
-    </p>
   </div>
 </div>
 
 <!-- TRADE MODAL -->
 <div id="tradeBack" class="modalBack">
-  <div class="modal">
+  <div class="modal card">
     <h2>Trade</h2>
+    <div class="small">Send 1 item to another player. They can accept/decline.</div>
+
     <div class="row">
-      <select id="tradeTarget" class="select"></select>
-      <input id="tradeItem" class="input" placeholder="Item to offer (must be yours)">
-      <button id="tradeSendBtn" class="smallBtn">Send</button>
+      <div class="grow">
+        <select id="tradeTarget" class="select"></select>
+      </div>
+      <div class="grow">
+        <input id="tradeItem" class="input" placeholder="Item name (exact, e.g. Rope)" />
+      </div>
+      <button id="tradeSendBtn" class="smallBtn">Send x1</button>
       <button id="tradeCloseBtn" class="smallBtn">Close</button>
     </div>
-    <div style="font-size:14px; opacity:.85;">
-      Sends request to: <code>rooms/{room}/tradeRequests/{targetId}/{reqId}</code>
-    </div>
-    <hr>
+
+    <hr />
+    <div class="small" style="font-weight:900; margin-bottom:8px;">Inbox</div>
     <div id="tradeInbox" class="listBox"></div>
   </div>
 </div>
 
-<!-- PLEASE POPUP (for Challenger) -->
+<!-- PLEASE MODAL (Challenger only) -->
 <div id="pleaseBack" class="modalBack">
-  <div class="modal">
-    <h2>Requests (Please)</h2>
-    <div id="pleaseInbox" class="listBox"></div>
-    <div class="row">
+  <div class="modal card">
+    <h2>Requests</h2>
+    <div class="small">Only Challenger sees this inbox.</div>
+
+    <div id="pleaseInbox" class="listBox" style="margin-top:10px;"></div>
+
+    <div class="row" style="justify-content:flex-end;">
       <button id="pleaseCloseBtn" class="smallBtn">Close</button>
     </div>
   </div>
@@ -223,7 +528,7 @@ hr { border:none; border-top:3px dashed #000; margin:10px 0; }
 
 <script>
 /* ============================
-   FIREBASE CONFIG (TVOJI PODACI)
+   FIREBASE CONFIG (TVOJ PROJEKT)
    ============================ */
 const firebaseConfig = {
   apiKey: "AIzaSyD6T_zbq3-fhN10aCF9zZtWJxV0eMg8fZQ",
@@ -234,84 +539,112 @@ const firebaseConfig = {
   messagingSenderId: "953781088335",
   appId: "1:953781088335:web:fc26e2fb17717004eeba3a"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 /* ============================
-   GLOBALS
+   SETTINGS
    ============================ */
 const MAX_PLAYERS = 4;
+
+// Mobile-friendly starter kit (trade + survival)
+const STARTER_ITEMS = [
+  { id:"water",   name:"Water",   icon:"💧", qty:2 },
+  { id:"berries", name:"Berries", icon:"🫐", qty:2 },
+  { id:"rope",    name:"Rope",    icon:"🪢", qty:1 },
+  { id:"torch",   name:"Torch",   icon:"🔥", qty:1 },
+  { id:"trap",    name:"Trap",    icon:"🪤", qty:1 }
+];
+
+/* ============================
+   STATE
+   ============================ */
 let myId = localStorage.getItem("sc_myId");
 if (!myId) {
   myId = Math.random().toString(36).slice(2, 10);
   localStorage.setItem("sc_myId", myId);
 }
-
 let currentRoom = null;
-let lastAnimal = null;
-let myRole = "Survivor";
 let roomCache = null;
+let myRole = "Survivor";
+let lastAnimal = null;
 
-function nowId() {
-  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-}
-
-function esc(s) {
+/* ============================
+   UTIL
+   ============================ */
+function esc(s){
   return String(s ?? "").replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 }
-
-function showGameScreen() {
+function nowId(){
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+function setStatus(text){
+  document.getElementById("statusCard").textContent = text;
+}
+function showGame(){
   document.getElementById("startScreen").style.display = "none";
   document.getElementById("gameScreen").style.display = "block";
 }
-
-function addFeed(text) {
+function addFeed(text){
   const feed = document.getElementById("feedList");
   const div = document.createElement("div");
   div.className = "feedItem";
   div.innerHTML = esc(text);
   feed.prepend(div);
-  // trim
-  while (feed.children.length > 25) feed.removeChild(feed.lastChild);
+  while(feed.children.length > 30) feed.removeChild(feed.lastChild);
 }
 
-function setStatus(text) {
-  document.getElementById("playedCard").textContent = text;
+/* ============================
+   INVENTORY HELPERS
+   ============================ */
+function normalizeInventory(inv){
+  const arr = Array.isArray(inv) ? inv : [];
+  return arr
+    .filter(it => it && typeof it.name === "string")
+    .map(it => ({
+      id: String(it.id || it.name).toLowerCase().replace(/\s+/g,"-").slice(0,30),
+      name: String(it.name).trim().slice(0,30),
+      icon: String(it.icon || "🎒").slice(0,3),
+      qty: Math.max(1, parseInt(it.qty || 1, 10))
+    }));
+}
+function findItemIndex(inv, name){
+  const n = String(name||"").trim().toLowerCase();
+  return inv.findIndex(it => it.name.toLowerCase() === n);
+}
+function iconForName(name){
+  const n = String(name||"").trim().toLowerCase();
+  if (n.includes("water")) return "💧";
+  if (n.includes("berry")) return "🫐";
+  if (n.includes("rope")) return "🪢";
+  if (n.includes("torch")) return "🔥";
+  if (n.includes("trap")) return "🪤";
+  if (n.includes("meat")) return "🥩";
+  if (n.includes("wood")) return "🪵";
+  if (n.includes("stone")) return "🪨";
+  return "🎒";
 }
 
 /* ============================
    UI RENDER
    ============================ */
-function renderHearts(playersObj) {
-  const area = document.getElementById("playerHeartsArea");
-  area.innerHTML = "";
+function renderPlayers(playersObj){
+  const wrap = document.getElementById("playersWrap");
+  wrap.innerHTML = "";
   if (!playersObj) return;
 
-  const arr = Object.values(playersObj);
-  // stable-ish ordering
-  arr.sort((a,b) => (a.joinedAt||0) - (b.joinedAt||0));
-
+  const arr = Object.values(playersObj).sort((a,b) => (a.joinedAt||0) - (b.joinedAt||0));
   arr.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "playerHearts";
-    const readyDot = (p.ready ? "✅" : "⏳");
-    div.textContent = `${readyDot} ${p.name}: ${"❤️".repeat(p.hearts || 0)}`;
-    div.onclick = () => openViewing(p.id);
-    area.appendChild(div);
+    const chip = document.createElement("div");
+    chip.className = "pill playerChip";
+    const readyDot = p.ready ? "✅" : "⏳";
+    chip.textContent = `${readyDot} ${p.name}: ${"❤️".repeat(p.hearts || 0)}`;
+    chip.onclick = () => openViewing(p.id);
+    wrap.appendChild(chip);
   });
 }
 
-function showAnimalFor3Sec(animalName) {
-  if (!animalName || animalName === lastAnimal) return;
-  lastAnimal = animalName;
-
-  const nightCard = document.getElementById("nightCard");
-  nightCard.textContent = animalName;
-  setTimeout(() => nightCard.textContent = "", 3000);
-}
-
-function updateRoleAndReadyPills(room) {
+function updatePills(room){
   const players = room?.players || {};
   const me = players[myId];
   myRole = me?.role || myRole;
@@ -322,80 +655,111 @@ function updateRoleAndReadyPills(room) {
   const ready = Object.values(players).filter(p => p.ready).length;
   document.getElementById("readyPill").textContent = `Ready: ${ready}/${total}`;
 
-  // enable start night only for challenger + all ready + at least 1 player
   const allReady = total > 0 && ready === total;
   document.getElementById("startNightBtn").disabled = !(myRole === "Challenger" && allReady);
+
+  const readyBtn = document.getElementById("readyBtn");
+  const isReady = !!players?.[myId]?.ready;
+  readyBtn.textContent = isReady ? "Unready" : "Ready";
+  readyBtn.classList.toggle("btnOk", !isReady);
+  readyBtn.classList.toggle("btnDanger", isReady);
+}
+
+function showAnimalFor3Sec(animal){
+  if (!animal || animal === lastAnimal) return;
+  lastAnimal = animal;
+  const el = document.getElementById("nightCard");
+  el.textContent = animal;
+  setTimeout(()=> el.textContent="", 3000);
 }
 
 /* ============================
-   INVENTORY (sync)
+   INVENTORY MODAL
    ============================ */
-function openInventory() {
-  document.getElementById("invBack").style.display = "flex";
+function openInventory(){
+  document.getElementById("invBack").style.display = "block";
   renderInventory(roomCache?.players?.[myId]?.inventory || []);
 }
-
-function closeInventory() {
+function closeInventory(){
   document.getElementById("invBack").style.display = "none";
 }
-
-function renderInventory(items) {
+function renderInventory(items){
   const box = document.getElementById("invList");
   box.innerHTML = "";
-  const arr = Array.isArray(items) ? items : [];
+  const arr = normalizeInventory(items);
 
-  if (arr.length === 0) {
+  if (arr.length === 0){
     const p = document.createElement("div");
-    p.style.opacity = ".8";
+    p.style.opacity = ".85";
     p.textContent = "Empty inventory.";
     box.appendChild(p);
     return;
   }
 
-  arr.forEach((item, idx) => {
+  arr.forEach((it, idx) => {
     const row = document.createElement("div");
     row.className = "itemPill";
-    row.innerHTML = `<span>${esc(item)}</span>`;
-    const btn = document.createElement("button");
-    btn.className = "smallBtn";
-    btn.textContent = "Remove";
-    btn.onclick = async () => {
+
+    const left = document.createElement("div");
+    left.innerHTML = `<span class="icon">${esc(it.icon)}</span><b>${esc(it.name)}</b> <span class="badge">x${it.qty}</span>`;
+    row.appendChild(left);
+
+    const minus = document.createElement("button");
+    minus.className = "smallBtn btnDanger";
+    minus.textContent = "-1";
+    minus.onclick = async () => {
       const newInv = arr.slice();
-      newInv.splice(idx, 1);
+      newInv[idx].qty -= 1;
+      if (newInv[idx].qty <= 0) newInv.splice(idx, 1);
       await db.ref(`rooms/${currentRoom}/players/${myId}/inventory`).set(newInv);
-      addFeed(`Inventory: removed "${item}"`);
+      addFeed(`Used 1 ${it.name}`);
     };
-    row.appendChild(btn);
+
+    const plus = document.createElement("button");
+    plus.className = "smallBtn btnOk";
+    plus.textContent = "+1";
+    plus.onclick = async () => {
+      const newInv = arr.slice();
+      newInv[idx].qty += 1;
+      await db.ref(`rooms/${currentRoom}/players/${myId}/inventory`).set(newInv);
+      addFeed(`Gained 1 ${it.name}`);
+    };
+
+    row.appendChild(minus);
+    row.appendChild(plus);
     box.appendChild(row);
   });
 }
 
-async function addInventoryItem(name) {
-  const item = String(name || "").trim();
-  if (!item) return;
+async function addInventoryItem(name, qty){
+  const itemName = String(name||"").trim().slice(0,30);
+  const q = Math.max(1, parseInt(qty||1,10));
+  if (!itemName) return;
 
   const invRef = db.ref(`rooms/${currentRoom}/players/${myId}/inventory`);
   const snap = await invRef.get();
-  const arr = snap.exists() && Array.isArray(snap.val()) ? snap.val() : [];
-  arr.push(item);
-  await invRef.set(arr);
-  addFeed(`Inventory: added "${item}"`);
+  const inv = normalizeInventory(snap.exists() ? snap.val() : []);
+  const i = findItemIndex(inv, itemName);
+
+  if (i >= 0) inv[i].qty += q;
+  else inv.push({ id:itemName.toLowerCase().replace(/\s+/g,"-"), name:itemName, icon:iconForName(itemName), qty:q });
+
+  await invRef.set(inv);
+  addFeed(`Added ${q} ${itemName}`);
 }
 
 /* ============================
-   TRADE (requests)
+   TRADE MODAL
    ============================ */
-function openTrade() {
-  document.getElementById("tradeBack").style.display = "flex";
+function openTrade(){
+  document.getElementById("tradeBack").style.display = "block";
   refreshTradeTargets();
   renderTradeInbox(roomCache?.tradeRequests?.[myId] || {});
 }
-
-function closeTrade() {
+function closeTrade(){
   document.getElementById("tradeBack").style.display = "none";
 }
-
-function refreshTradeTargets() {
+function refreshTradeTargets(){
   const sel = document.getElementById("tradeTarget");
   sel.innerHTML = "";
 
@@ -414,76 +778,67 @@ function refreshTradeTargets() {
     sel.appendChild(opt);
   });
 }
-
-function renderTradeInbox(inboxObj) {
+function renderTradeInbox(inboxObj){
   const box = document.getElementById("tradeInbox");
   box.innerHTML = "";
 
   const entries = inboxObj ? Object.entries(inboxObj) : [];
-  if (entries.length === 0) {
+  if (entries.length === 0){
     const p = document.createElement("div");
-    p.style.opacity = ".8";
-    p.textContent = "No incoming trade requests.";
+    p.style.opacity = ".85";
+    p.textContent = "No incoming trades.";
     box.appendChild(p);
     return;
   }
 
-  // newest first
-  entries.sort((a,b) => (b[1]?.createdAt||0) - (a[1]?.createdAt||0));
+  entries.sort((a,b)=> (b[1]?.createdAt||0) - (a[1]?.createdAt||0));
 
   entries.forEach(([reqId, req]) => {
     const fromName = roomCache?.players?.[req.fromId]?.name || req.fromId;
-    const pill = document.createElement("div");
-    pill.className = "itemPill";
-    pill.innerHTML = `<span><b>${esc(fromName)}</b> offers: <b>${esc(req.item)}</b></span>`;
+
+    const row = document.createElement("div");
+    row.className = "itemPill";
+    row.innerHTML = `<div><b>${esc(fromName)}</b> offers: <b>${esc(req.item)}</b> <span class="badge">x1</span></div>`;
 
     const accept = document.createElement("button");
-    accept.className = "smallBtn";
+    accept.className = "smallBtn btnOk";
     accept.textContent = "Accept";
     accept.onclick = () => acceptTrade(reqId, req);
 
     const decline = document.createElement("button");
-    decline.className = "smallBtn";
+    decline.className = "smallBtn btnDanger";
     decline.textContent = "Decline";
     decline.onclick = () => declineTrade(reqId);
 
-    pill.appendChild(accept);
-    pill.appendChild(decline);
-    box.appendChild(pill);
+    row.appendChild(accept);
+    row.appendChild(decline);
+    box.appendChild(row);
   });
 }
 
-async function sendTrade(targetId, itemName) {
-  const item = String(itemName || "").trim();
+async function sendTrade(targetId, itemName){
+  const item = String(itemName||"").trim().slice(0,30);
   if (!targetId) return alert("Choose a player.");
-  if (!item) return alert("Type an item to offer.");
+  if (!item) return alert("Type an item name.");
 
-  // verify I own item
-  const myInv = roomCache?.players?.[myId]?.inventory || [];
-  if (!Array.isArray(myInv) || !myInv.includes(item)) {
-    return alert("You don't have that item in your inventory.");
-  }
+  const myInv = normalizeInventory(roomCache?.players?.[myId]?.inventory || []);
+  const idx = findItemIndex(myInv, item);
+  if (idx < 0 || myInv[idx].qty < 1) return alert("You don't have that item.");
 
   const reqId = nowId();
-  const req = {
-    id: reqId,
-    fromId: myId,
-    toId: targetId,
-    item,
-    createdAt: Date.now()
-  };
+  await db.ref(`rooms/${currentRoom}/tradeRequests/${targetId}/${reqId}`).set({
+    id:reqId, fromId:myId, toId:targetId, item, createdAt:Date.now()
+  });
 
-  await db.ref(`rooms/${currentRoom}/tradeRequests/${targetId}/${reqId}`).set(req);
-  addFeed(`Trade sent to ${roomCache?.players?.[targetId]?.name || targetId}: "${item}"`);
+  addFeed(`Trade sent: ${item} → ${roomCache?.players?.[targetId]?.name || targetId}`);
 }
 
-async function declineTrade(reqId) {
+async function declineTrade(reqId){
   await db.ref(`rooms/${currentRoom}/tradeRequests/${myId}/${reqId}`).remove();
   addFeed("Trade declined.");
 }
 
-async function acceptTrade(reqId, req) {
-  // Transfer item from req.fromId -> me (if still available)
+async function acceptTrade(reqId, req){
   const fromId = req.fromId;
   const item = req.item;
 
@@ -491,125 +846,116 @@ async function acceptTrade(reqId, req) {
   const myInvRef = db.ref(`rooms/${currentRoom}/players/${myId}/inventory`);
 
   const [fromSnap, mySnap] = await Promise.all([fromInvRef.get(), myInvRef.get()]);
-  const fromInv = fromSnap.exists() && Array.isArray(fromSnap.val()) ? fromSnap.val() : [];
-  const myInv = mySnap.exists() && Array.isArray(mySnap.val()) ? mySnap.val() : [];
+  const fromInv = normalizeInventory(fromSnap.exists() ? fromSnap.val() : []);
+  const myInv = normalizeInventory(mySnap.exists() ? mySnap.val() : []);
 
-  if (!fromInv.includes(item)) {
+  const fi = findItemIndex(fromInv, item);
+  if (fi < 0 || fromInv[fi].qty < 1){
     await declineTrade(reqId);
-    return alert("Item is no longer available (sender inventory changed).");
+    return alert("Item no longer available.");
   }
 
-  // remove one instance
-  const idx = fromInv.indexOf(item);
-  fromInv.splice(idx, 1);
-  myInv.push(item);
+  fromInv[fi].qty -= 1;
+  if (fromInv[fi].qty <= 0) fromInv.splice(fi, 1);
+
+  const mi = findItemIndex(myInv, item);
+  if (mi >= 0) myInv[mi].qty += 1;
+  else myInv.push({ id:item.toLowerCase().replace(/\s+/g,"-"), name:item, icon:iconForName(item), qty:1 });
 
   const updates = {};
   updates[`rooms/${currentRoom}/players/${fromId}/inventory`] = fromInv;
   updates[`rooms/${currentRoom}/players/${myId}/inventory`] = myInv;
   updates[`rooms/${currentRoom}/tradeRequests/${myId}/${reqId}`] = null;
 
-  // add a small event to feed log in DB (optional)
   const evId = nowId();
   updates[`rooms/${currentRoom}/events/${evId}`] = {
-    type: "trade",
-    text: `${roomCache?.players?.[fromId]?.name || fromId} → ${roomCache?.players?.[myId]?.name || myId}: ${item}`,
-    createdAt: Date.now()
+    type:"trade",
+    text:`Trade: ${roomCache?.players?.[fromId]?.name || fromId} → ${roomCache?.players?.[myId]?.name || myId}: ${item} x1`,
+    createdAt:Date.now()
   };
 
   await db.ref().update(updates);
-  addFeed(`Trade accepted: received "${item}"`);
+  addFeed(`Trade accepted: +1 ${item}`);
 }
 
 /* ============================
-   PLEASE (requests to challenger)
+   PLEASE
    ============================ */
-function openPleaseModal() {
-  document.getElementById("pleaseBack").style.display = "flex";
+function openPleaseModal(){
+  document.getElementById("pleaseBack").style.display = "block";
   renderPleaseInbox(roomCache?.pleaseRequests?.[myId] || {});
 }
-function closePleaseModal() {
+function closePleaseModal(){
   document.getElementById("pleaseBack").style.display = "none";
 }
-
-function renderPleaseInbox(inboxObj) {
+function renderPleaseInbox(inboxObj){
   const box = document.getElementById("pleaseInbox");
   box.innerHTML = "";
 
   const entries = inboxObj ? Object.entries(inboxObj) : [];
-  if (entries.length === 0) {
+  if (entries.length === 0){
     const p = document.createElement("div");
-    p.style.opacity = ".8";
+    p.style.opacity = ".85";
     p.textContent = "No requests.";
     box.appendChild(p);
     return;
   }
 
-  entries.sort((a,b) => (b[1]?.createdAt||0) - (a[1]?.createdAt||0));
-
+  entries.sort((a,b)=> (b[1]?.createdAt||0) - (a[1]?.createdAt||0));
   entries.forEach(([rid, r]) => {
     const fromName = roomCache?.players?.[r.fromId]?.name || r.fromId;
-    const pill = document.createElement("div");
-    pill.className = "itemPill";
-    pill.innerHTML = `<span><b>${esc(fromName)}</b> says: <b>${esc(r.message)}</b></span>`;
+
+    const row = document.createElement("div");
+    row.className = "itemPill";
+    row.innerHTML = `<div><b>${esc(fromName)}</b> says: <b>${esc(r.message)}</b></div>`;
 
     const done = document.createElement("button");
-    done.className = "smallBtn";
+    done.className = "smallBtn btnOk";
     done.textContent = "Done";
     done.onclick = async () => {
       await db.ref(`rooms/${currentRoom}/pleaseRequests/${myId}/${rid}`).remove();
-      addFeed(`Please handled: ${fromName}`);
+      addFeed(`Handled PLEASE from ${fromName}`);
     };
 
-    pill.appendChild(done);
-    box.appendChild(pill);
+    row.appendChild(done);
+    box.appendChild(row);
   });
 }
 
-async function sendPlease() {
+async function sendPlease(){
   if (!roomCache) return;
   const challengerId = roomCache.challengerId;
-  if (!challengerId) return alert("No challenger in room yet.");
+  if (!challengerId) return alert("No Challenger in room.");
 
-  // challenger's own press opens inbox
-  if (myRole === "Challenger") {
+  if (myRole === "Challenger"){
     openPleaseModal();
     return;
   }
 
   const rid = nowId();
-  const msg = "PLEASE (need help/action)";
   await db.ref(`rooms/${currentRoom}/pleaseRequests/${challengerId}/${rid}`).set({
-    id: rid,
-    fromId: myId,
-    message: msg,
-    createdAt: Date.now()
+    id:rid, fromId:myId, message:"PLEASE", createdAt:Date.now()
   });
 
   const evId = nowId();
   await db.ref(`rooms/${currentRoom}/events/${evId}`).set({
-    type: "please",
-    text: `${roomCache?.players?.[myId]?.name || myId} requested PLEASE`,
-    createdAt: Date.now()
+    type:"please",
+    text:`${roomCache?.players?.[myId]?.name || myId} sent PLEASE`,
+    createdAt:Date.now()
   });
 
-  addFeed("Please sent to Challenger.");
+  addFeed("PLEASE sent to Challenger.");
 }
 
 /* ============================
-   READY / SKIP
+   READY + VIEWING
    ============================ */
-async function toggleReady() {
+async function toggleReady(){
   const me = roomCache?.players?.[myId];
   if (!me) return;
-  const newVal = !me.ready;
-  await db.ref(`rooms/${currentRoom}/players/${myId}/ready`).set(newVal);
-  addFeed(newVal ? "You are READY." : "You are NOT ready.");
+  await db.ref(`rooms/${currentRoom}/players/${myId}/ready`).set(!me.ready);
 }
 
-/* ============================
-   VIEWING (demo)
-   ============================ */
 function openViewing(playerId){
   if (!playerId || playerId === myId) return;
   document.getElementById("viewingOverlay").style.display = "flex";
@@ -621,67 +967,60 @@ document.getElementById("closeViewBtn").onclick = () => {
 };
 
 /* ============================
-   ROOM LISTEN + EVENTS
+   ROOM LISTENERS
    ============================ */
-function listenRoom() {
-  // room main
+function listenRoom(){
   db.ref(`rooms/${currentRoom}`).on("value", snap => {
     const data = snap.val();
     if (!data) return;
     roomCache = data;
 
-    renderHearts(data.players);
-    updateRoleAndReadyPills(data);
+    renderPlayers(data.players);
+    updatePills(data);
 
-    if (data.players && data.players[myId]) {
+    if (data.players && data.players[myId]){
       document.getElementById("hungerValue").textContent = data.players[myId].hunger ?? 70;
 
-      // live update inventory modal if open
-      if (document.getElementById("invBack").style.display === "flex") {
+      if (document.getElementById("invBack").style.display === "block"){
         renderInventory(data.players[myId].inventory || []);
       }
     }
 
     if (data.currentAnimal) showAnimalFor3Sec(data.currentAnimal);
 
-    // update trade inbox if open
-    if (document.getElementById("tradeBack").style.display === "flex") {
+    if (document.getElementById("tradeBack").style.display === "block"){
       refreshTradeTargets();
       renderTradeInbox(data.tradeRequests?.[myId] || {});
     }
 
-    // challenger: show please modal badge by auto-opening if new (simple)
-    if (myRole === "Challenger") {
+    if (myRole === "Challenger"){
       const inbox = data.pleaseRequests?.[myId] || {};
       const count = Object.keys(inbox).length;
-      if (count > 0 && document.getElementById("pleaseBack").style.display !== "flex") {
-        // open automatically once there is at least one request
+      if (count > 0 && document.getElementById("pleaseBack").style.display !== "block"){
         openPleaseModal();
-        addFeed("New PLEASE request received.");
+        addFeed("New PLEASE request.");
       }
-      if (document.getElementById("pleaseBack").style.display === "flex") {
+      if (document.getElementById("pleaseBack").style.display === "block"){
         renderPleaseInbox(inbox);
       }
     }
   });
 
-  // room events feed
   db.ref(`rooms/${currentRoom}/events`).limitToLast(25).on("child_added", snap => {
     const ev = snap.val();
-    if (!ev || !ev.text) return;
-    addFeed(ev.text);
+    if (ev?.text) addFeed(ev.text);
   });
 }
 
 /* ============================
-   JOIN / CREATE (max 4)
+   JOIN / CREATE
    ============================ */
-async function joinOrCreateRoom(code, playerName) {
+async function joinOrCreateRoom(code, playerName){
   currentRoom = code;
   const roomRef = db.ref(`rooms/${currentRoom}`);
   const snap = await roomRef.get();
 
-  if (!snap.exists()) {
+  if (!snap.exists()){
     await roomRef.set({
       createdAt: Date.now(),
       night: 1,
@@ -695,22 +1034,24 @@ async function joinOrCreateRoom(code, playerName) {
   const room = (await roomRef.get()).val();
   const players = room.players || {};
 
-  // enforce max players (do not count myself if rejoining)
+  // enforce max players (rejoin doesn't count twice)
   const count = Object.keys(players).filter(pid => pid !== myId).length + (players[myId] ? 0 : 1);
-  if (count > MAX_PLAYERS) {
-    alert("Room is full (max 4 players).");
+  if (count > MAX_PLAYERS){
+    alert("Room is full (max 4).");
     return;
   }
 
-  // decide role: challenger is fixed; if challenger missing (deleted), first join becomes challenger
+  // challenger fallback if missing
   let challengerId = room.challengerId;
-  if (!challengerId || !players[challengerId]) {
+  if (!challengerId || !players[challengerId]){
     challengerId = myId;
     await db.ref(`rooms/${currentRoom}/challengerId`).set(challengerId);
   }
   const isChallenger = challengerId === myId;
 
-  const name = (playerName || "").trim().slice(0, 14) || ("Player-" + myId.slice(0,4));
+  const name = (playerName || "").trim().slice(0,14) || ("Player-" + myId.slice(0,4));
+  const existing = players[myId];
+  const inv = existing?.inventory ? normalizeInventory(existing.inventory) : STARTER_ITEMS.slice();
 
   const playerRef = db.ref(`rooms/${currentRoom}/players/${myId}`);
   await playerRef.set({
@@ -721,32 +1062,32 @@ async function joinOrCreateRoom(code, playerName) {
     role: isChallenger ? "Challenger" : "Survivor",
     ready: false,
     joinedAt: Date.now(),
-    inventory: []
+    inventory: inv
   });
 
-  // presence cleanup
+  // cleanup on disconnect
   playerRef.onDisconnect().remove();
 
-  // add join event
+  // event join
   const evId = nowId();
   await db.ref(`rooms/${currentRoom}/events/${evId}`).set({
-    type: "join",
-    text: `${name} joined.`,
+    type:"join",
+    text:`${name} joined.`,
     createdAt: Date.now()
   });
 
-  showGameScreen();
-  setStatus("Waiting for players. Use Ready/Skip.");
+  showGame();
+  setStatus("Open Inventory, Trade, Ready. Challenger starts when all ready.");
   listenRoom();
 }
 
 /* ============================
-   START NIGHT (Challenger + all ready)
+   START NIGHT
    ============================ */
 document.getElementById("startNightBtn").onclick = async () => {
   if (!currentRoom || !roomCache) return;
 
-  if (myRole !== "Challenger") {
+  if (myRole !== "Challenger"){
     alert("Only Challenger can start night.");
     return;
   }
@@ -754,52 +1095,49 @@ document.getElementById("startNightBtn").onclick = async () => {
   const players = roomCache.players || {};
   const total = Object.keys(players).length;
   const ready = Object.values(players).filter(p => p.ready).length;
-  if (!(total > 0 && ready === total)) {
-    alert("All players must be READY first.");
+
+  if (!(total > 0 && ready === total)){
+    alert("All players must be READY.");
     return;
   }
 
   const animals = ["Bear","Pig","Elephant","Snake","Tiger"];
   const chosen = animals[Math.floor(Math.random()*animals.length)];
 
-  // reset ready flags, bump night, set animal
   const updates = {};
   updates[`rooms/${currentRoom}/currentAnimal`] = chosen;
   updates[`rooms/${currentRoom}/night`] = (roomCache.night || 1) + 1;
 
+  // reset ready for all
   Object.keys(players).forEach(pid => {
     updates[`rooms/${currentRoom}/players/${pid}/ready`] = false;
   });
 
   const evId = nowId();
   updates[`rooms/${currentRoom}/events/${evId}`] = {
-    type: "night",
-    text: `Night ${updates[`rooms/${currentRoom}/night`]} started: ${chosen}`,
+    type:"night",
+    text:`Night ${updates[`rooms/${currentRoom}/night`]} started: ${chosen}`,
     createdAt: Date.now()
   };
 
   await db.ref().update(updates);
-  setStatus("Night started. Animal shown for 3 seconds.");
+  setStatus("Night started. Animal shows for 3 seconds.");
 };
 
 /* ============================
-   BUTTON HOOKS
+   BUTTONS
    ============================ */
-document.getElementById("inventoryBtn").onclick = () => {
-  if (!currentRoom) return;
-  openInventory();
-};
+document.getElementById("inventoryBtn").onclick = () => { if (currentRoom) openInventory(); };
 document.getElementById("invCloseBtn").onclick = closeInventory;
 document.getElementById("invAddBtn").onclick = () => {
-  const val = document.getElementById("invItemInput").value;
+  const name = document.getElementById("invItemInput").value;
+  const qty  = document.getElementById("invQtyInput").value;
   document.getElementById("invItemInput").value = "";
-  addInventoryItem(val);
+  document.getElementById("invQtyInput").value = "1";
+  addInventoryItem(name, qty);
 };
 
-document.getElementById("tradeBtn").onclick = () => {
-  if (!currentRoom) return;
-  openTrade();
-};
+document.getElementById("tradeBtn").onclick = () => { if (currentRoom) openTrade(); };
 document.getElementById("tradeCloseBtn").onclick = closeTrade;
 document.getElementById("tradeSendBtn").onclick = () => {
   const targetId = document.getElementById("tradeTarget").value;
@@ -808,25 +1146,25 @@ document.getElementById("tradeSendBtn").onclick = () => {
   sendTrade(targetId, item);
 };
 
-document.getElementById("pleaseBtn").onclick = () => {
-  if (!currentRoom) return;
-  sendPlease();
-};
+document.getElementById("pleaseBtn").onclick = () => { if (currentRoom) sendPlease(); };
 document.getElementById("pleaseCloseBtn").onclick = closePleaseModal;
 
-document.getElementById("skipBtn").onclick = () => {
-  if (!currentRoom) return;
-  toggleReady();
-};
+document.getElementById("readyBtn").onclick = () => { if (currentRoom) toggleReady(); };
 
-/* JOIN BUTTON */
 document.getElementById("joinGameBtn").onclick = () => {
   const code = document.getElementById("gameCodeInput").value.trim().toUpperCase();
   const name = document.getElementById("nameInput").value;
-  if (!code) return alert("Upiši kod npr. ABCD12");
-  if (!/^[A-Z0-9]{2,6}$/.test(code)) return alert("Code: only A-Z and 0-9 (2-6 chars).");
+
+  if (!code) return alert("Enter a code (e.g. ABCD12).");
+  if (!/^[A-Z0-9]{2,6}$/.test(code)) return alert("Code: A-Z and 0-9 (2–6 chars).");
+
   joinOrCreateRoom(code, name);
 };
+
+/* Close modals by tapping outside (mobile-friendly) */
+document.getElementById("invBack").addEventListener("click", (e)=>{ if(e.target.id==="invBack") closeInventory(); });
+document.getElementById("tradeBack").addEventListener("click", (e)=>{ if(e.target.id==="tradeBack") closeTrade(); });
+document.getElementById("pleaseBack").addEventListener("click", (e)=>{ if(e.target.id==="pleaseBack") closePleaseModal(); });
 </script>
 
 </body>
