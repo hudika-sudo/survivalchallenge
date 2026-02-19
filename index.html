@@ -1,475 +1,491 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Survival Challenge</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Survival Challenge</title>
 
-  <!-- Firebase compat (works in plain HTML on GitHub Pages) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
-  <style>
-    :root{
-      --safeTop: env(safe-area-inset-top, 0px);
-      --safeBottom: env(safe-area-inset-bottom, 0px);
-      --ink:#2b1d0e;
-      --shadow: rgba(0,0,0,.28);
-      --stroke: rgba(0,0,0,.18);
-      --paperBg: rgba(255,255,255,.86);
-    }
-    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color:var(--ink);
-      overflow:hidden;
-      background: url("assets/wood.png") center/cover no-repeat fixed;
-    }
-    @media (max-width: 768px){ body{ background-attachment: scroll; } }
+<style>
+  :root{
+    --safeTop: env(safe-area-inset-top, 0px);
+    --safeBottom: env(safe-area-inset-bottom, 0px);
+    --pad: 12px;
+    --radius: 18px;
+    --shadow: 0 10px 24px rgba(0,0,0,.25);
+    --ink: #2b1d0e;
+    --paper: rgba(255,255,255,.82);
+  }
+  *{ box-sizing:border-box; }
+  html, body{ height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--ink); }
+  body{
+    background: url("assets/wood.png") center/cover no-repeat fixed;
+    overflow:hidden;
+  }
+  .paperOverlay{
+    position:fixed; inset:0;
+    background: url("assets/paper.png") center/cover no-repeat;
+    opacity:.88;
+    pointer-events:none;
+  }
+  .panel{
+    background: var(--paper);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(0,0,0,.15);
+    overflow:hidden;
+  }
+  .wrap{
+    position:fixed; inset:0;
+    padding: calc(var(--pad) + var(--safeTop)) var(--pad) calc(110px + var(--safeBottom)) var(--pad);
+    display:flex; flex-direction:column;
+    gap: 12px;
+    overflow:hidden;
+  }
 
-    /* vignette */
-    body::before{
-      content:"";
-      position:fixed; inset:0;
-      pointer-events:none;
-      background:
-        radial-gradient(1200px 700px at 50% 10%, rgba(255,255,255,.10), transparent 62%),
-        radial-gradient(900px 600px at 15% 0%, rgba(255,255,255,.06), transparent 56%),
-        radial-gradient(900px 600px at 90% 20%, rgba(0,0,0,.22), transparent 64%);
-    }
+  /* START */
+  #startScreen{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    padding: 18px;
+  }
+  .startCard{ width:min(560px, 96vw); padding: 18px; text-align:center; }
+  #logoImg{
+    width:min(420px, 90%);
+    height:auto;
+    display:block;
+    margin: 6px auto 10px auto;
+    filter: drop-shadow(0 10px 18px rgba(0,0,0,.25));
+  }
+  .startSmall{ margin: 0 0 14px 0; font-weight:800; opacity:.9; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  input{
+    font-size: 18px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(0,0,0,.25);
+    outline:none;
+    width: min(240px, 90vw);
+    background: rgba(255,255,255,.90);
+  }
+  #roomCode{ text-transform:uppercase; letter-spacing:1px; font-weight:900; text-align:center; }
 
-    .screen{
-      position:fixed; inset:0;
-      padding: calc(10px + var(--safeTop)) 10px calc(10px + var(--safeBottom)) 10px;
-      display:none;
-      gap:10px;
-    }
-    .screen.active{ display:flex; flex-direction:column; }
+  button{
+    font-size: 18px;
+    font-weight: 950;
+    border: 0;
+    padding: 12px 16px;
+    border-radius: 16px;
+    cursor:pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,.25);
+    transition: transform .08s ease, filter .08s ease;
+    user-select:none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active{ transform: scale(.98); filter: brightness(.98); }
+  .btnGold{ background: linear-gradient(#ffe7a4, #e8b94a); color: var(--ink); }
+  .btnGreen{ background: linear-gradient(#7ae37c, #2fa84b); color: #0c2a12; }
+  .btnRed{ background: linear-gradient(#ff8b8b, #d83a3a); color: #2b0c0c; }
+  .btnGray{ background: linear-gradient(#f0f0f0, #dcdcdc); color: #333; }
+  .miniBtn{ font-size: 16px; padding: 8px 10px; border-radius: 12px; box-shadow:none; }
 
-    .paper{
-      background:
-        url("assets/paper.png") center/cover no-repeat,
-        var(--paperBg);
-      border: 1px solid var(--stroke);
-      border-radius:18px;
-      box-shadow: 0 14px 28px var(--shadow);
-      backdrop-filter: blur(8px);
-    }
-
-    /* Start screen */
-    .startWrap{
-      flex:1;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      align-items:center;
-      gap:12px;
-      padding:18px;
-    }
-    #logo{
-      width:min(420px, 86vw);
-      height:auto;
-      display:block;
-      filter: drop-shadow(0 16px 22px rgba(0,0,0,.35));
-    }
-    .byline{
-      margin-top:4px;
-      font-weight:900;
-      opacity:.85;
-    }
-    .startCard{
-      width:min(560px, 96vw);
-      padding:14px;
-    }
-    .grid2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-    }
-    @media (max-width: 520px){
-      .grid2{ grid-template-columns: 1fr; }
-    }
-    label{ font-size:13px; font-weight:900; opacity:.82; }
-    input, select{
-      width:100%;
-      padding:12px 12px;
-      border-radius:14px;
-      border:1px solid rgba(0,0,0,.16);
-      background: rgba(255,255,255,.92);
-      outline:none;
-      font-size:16px;
-    }
-
-    /* Buttons */
-    .btn{
-      border:2px solid rgba(0,0,0,.22);
-      border-radius:16px;
-      padding:12px 14px;
-      font-weight:950;
-      font-size:16px;
-      cursor:pointer;
-      user-select:none;
-      box-shadow:
-        0 10px 0 rgba(0,0,0,.18),
-        0 18px 26px rgba(0,0,0,.18);
-      transition: transform .08s ease, filter .18s ease;
-    }
-    .btn:active{
-      transform: translateY(2px) scale(.99);
-      box-shadow:
-        0 7px 0 rgba(0,0,0,.16),
-        0 14px 18px rgba(0,0,0,.16);
-    }
-    .btn:disabled{ opacity:.55; filter: grayscale(.35); cursor:not-allowed; }
-    .btnGold{ background: linear-gradient(#ffe7a2,#f0b347); color:#2a1b00; }
-    .btnGreen{ background: linear-gradient(#66f09a,#1fb14a); color:#05240e; }
-    .btnRed{ background: linear-gradient(#ff8d8d,#df3a3a); color:#2b0707; }
-    .btnSoft{ background: linear-gradient(rgba(255,255,255,.92),rgba(245,245,245,.78)); color:#231a12; box-shadow:none; border:1px solid rgba(0,0,0,.16); }
-
-    /* Game layout */
-    .hud{
-      padding:12px;
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap:10px;
-    }
-    @media (max-width: 760px){
-      .hud{ grid-template-columns: 1fr 1fr; }
-    }
-    .pill{
-      min-height:48px;
-      padding:10px 12px;
-      border-radius:16px;
-      background: rgba(255,255,255,.72);
-      border: 1px solid rgba(0,0,0,.14);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      font-weight:950;
-    }
-    .pill small{ opacity:.72; font-weight:900; }
-
-    .mainRow{
-      display:flex;
-      gap:10px;
-      flex:1;
-      min-height:0;
-    }
-    @media (max-width: 880px){
-      .mainRow{ flex-direction:column; }
-    }
-
-    .feed{
-      width:min(520px, 100%);
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      min-height:0;
-    }
-    .feedTitle{ font-size:16px; font-weight:1000; }
-    .feedBox{
-      flex:1;
-      min-height:120px;
-      max-height:220px;
-      overflow:auto;
-      padding:10px;
-      border-radius:14px;
-      background: rgba(255,255,255,.88);
-      border:1px solid rgba(0,0,0,.14);
-      font-size:14px;
-      font-weight:850;
-    }
-    .feedItem{ padding:6px 0; border-bottom:1px dashed rgba(0,0,0,.14); }
-    .feedItem:last-child{ border-bottom:0; }
-
-    .cardArea{
-      flex:1;
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      min-height:0;
-    }
-    .cardHeader{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-    }
-    .tag{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      background: rgba(255,224,138,.65);
-      border:1px solid rgba(0,0,0,.12);
-      font-weight:1000;
-      font-size:12px;
-    }
-
-    #nightCard{
-      flex:1;
-      min-height:220px;
-      background: url("assets/card-frame.png") center/contain no-repeat;
-      border:0;
-      border-radius:16px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:44px 36px;
-      box-shadow: 0 18px 34px rgba(0,0,0,.25);
-      overflow:hidden;
-      position:relative;
-    }
-    @media (max-width: 760px){
-      #nightCard{ min-height:200px; padding:40px 28px; }
-    }
-    #nightMain{ font-size:26px; font-weight:1000; text-shadow:0 2px 0 rgba(0,0,0,.08); }
-    #nightSub{ margin-top:6px; font-size:14px; font-weight:900; opacity:.85; }
-
-    .pulse{ animation:pulse .9s ease-in-out infinite alternate; }
-    @keyframes pulse{
-      from{ filter:brightness(1); transform:translateY(0); }
-      to{ filter:brightness(1.06); transform:translateY(-1px); }
-    }
-
-    .controls{
-      padding:12px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      position:sticky;
-      bottom:0;
-      background:
-        url("assets/paper.png") center/cover no-repeat,
-        rgba(255,255,255,.80);
-      border:1px solid rgba(0,0,0,.12);
-      border-radius:18px;
-      backdrop-filter: blur(10px);
-    }
-
-    /* Overlay modal */
-    .overlay{
-      position:fixed; inset:0;
-      background: rgba(0,0,0,.38);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:14px;
-      z-index:9999;
-    }
-    .overlay.active{ display:flex; }
-    .modal{
-      width:min(620px, 96vw);
-      max-height: 88svh;
-      overflow:auto;
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .modal h2{ margin:0; font-size:18px; font-weight:1000; }
-    .hint{ font-size:13px; opacity:.82; font-weight:900; line-height:1.35; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .row > *{ flex:1; min-width: 120px; }
-    .list{
-      background: rgba(255,255,255,.88);
-      border:1px dashed rgba(0,0,0,.20);
-      border-radius:14px;
-      padding:10px;
-    }
-    .listRow{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      padding:8px 0;
-      border-bottom:1px dashed rgba(0,0,0,.16);
-      font-size:14px;
-      font-weight:950;
-    }
-    .listRow:last-child{ border-bottom:0; }
-
-    /* tiny toast */
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom: calc(16px + var(--safeBottom));
-      transform: translateX(-50%);
-      background: rgba(0,0,0,.75);
-      color:white;
-      padding:10px 14px;
-      border-radius: 999px;
-      font-weight:900;
-      font-size:13px;
-      display:none;
-      z-index:10000;
-    }
-/* === MOBILE FIX: make Night Card + buttons always visible === */
-@media (max-width: 880px){
-  .mainRow{
-    flex-direction: column;
+  /* GAME */
+  #gameScreen{ display:none; position:fixed; inset:0; }
+  .hudGrid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
+    padding: 12px;
+    background: rgba(255,255,255,.55);
+  }
+  .hudCell{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(0,0,0,.12);
+    font-weight: 950;
+    min-height: 46px;
+  }
+  .hudCell small{ font-weight:950; opacity:.75; margin-right:10px; }
+  .hudValue{ font-weight: 1000; }
+
+  .mainRow{
+    display:flex;
+    gap: 12px;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow:hidden;
   }
-
-  /* Limit feed height so card area fits */
   .feed{
-    width: 100%;
-    flex: 0 0 auto;
-    max-height: 210px;
-    min-height: 160px;
+    flex: 0 0 42%;
+    min-width: 280px;
+    display:flex;
+    flex-direction:column;
   }
-  .feedBox{ max-height: 150px; }
-
-  /* Card area MUST be visible and fill the rest */
-  .cardArea{
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-    display: flex;
+  .feedHeader{ padding: 12px 14px; font-weight: 1000; font-size: 22px; }
+  .feedBox{
+    margin: 0 12px 12px 12px;
+    padding: 10px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(0,0,0,.12);
+    height: 210px;
+    overflow-y:auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .feedLine{
+    padding: 10px 10px;
+    margin: 8px 0;
+    border-radius: 14px;
+    background: rgba(255,255,255,.72);
+    border: 1px solid rgba(0,0,0,.08);
+    font-weight: 950;
   }
 
-  /* Night card always takes space */
+  .cards{
+    flex: 1;
+    min-width: 0;
+    display:flex;
+    flex-direction:column;
+    gap: 12px;
+    overflow:hidden;
+  }
+
+  .nightPanel{
+    padding: 12px;
+    display:flex;
+    flex-direction:column;
+    gap: 10px;
+    min-height: 220px;
+  }
+  .nightTitle{
+    font-weight: 1000;
+    font-size: 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
   #nightCard{
-    flex: 1 1 auto;
-    min-height: 180px;
+    flex: 1;
+    min-height: 160px;
+    border-radius: 18px;
+    background:
+      url("assets/card-frame.png") center/cover no-repeat,
+      rgba(255,255,255,.78);
+    border: 1px solid rgba(0,0,0,.15);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding: 18px;
+    font-weight: 1000;
+    font-size: 24px;
+    line-height: 1.15;
+    position:relative;
+    overflow:hidden;
+  }
+  .pop{ animation: pop .18s ease-out; }
+  @keyframes pop{ from{ transform: scale(.985); filter: brightness(.96);} to{ transform: scale(1); filter: brightness(1);} }
+
+  .itemsPanel{ padding: 12px; display:flex; flex-direction:column; gap: 10px; overflow:hidden; }
+  .itemsTitle{ font-weight: 1000; font-size: 18px; display:flex; align-items:center; justify-content:space-between; }
+  .itemsGrid{ display:flex; flex-wrap:wrap; gap: 10px; overflow:auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .itemChip{
+    display:flex; align-items:center; gap: 8px;
+    padding: 10px 12px; border-radius: 16px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(0,0,0,.12);
+    font-weight: 1000; white-space:nowrap;
   }
 
-  /* Controls always visible at bottom */
+  /* Bottom controls always visible */
   .controls{
-    position: sticky;
-    bottom: calc(8px + var(--safeBottom));
+    position: fixed;
+    left: var(--pad);
+    right: var(--pad);
+    bottom: calc(10px + var(--safeBottom));
     z-index: 50;
   }
-}
+  .controlsInner{
+    padding: 12px;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    background: rgba(255,255,255,.62);
+  }
+  .controlsInner button{
+    width:100%;
+    padding: 14px 12px;
+    border-radius: 18px;
+    font-size: 18px;
+  }
 
-/* === EXTRA: allow page to scroll if needed === */
-#gameScreen{
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
+  /* Modals */
+  .modalBack{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,.35);
+    backdrop-filter: blur(4px);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .modal{
+    width: min(620px, 98vw);
+    max-height: min(84vh, 760px);
+    overflow:auto;
+    padding: 14px;
+  }
+  .modal h2{ margin: 6px 6px 10px 6px; font-size: 22px; }
+  .field{ display:flex; gap: 10px; flex-wrap:wrap; padding: 6px; align-items:center; }
+  select{
+    font-size: 16px;
+    padding: 12px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(0,0,0,.25);
+    background: rgba(255,255,255,.90);
+    min-width: 180px;
+  }
+  .hint{ margin: 8px 6px; opacity:.86; font-weight: 850; }
 
-  </style>
+  /* Video overlay */
+  #videoBack{ z-index: 300; }
+  .videoWrap{ width:min(880px,98vw); }
+  video{
+    width:100%;
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    background:#000;
+  }
+
+  /* Mobile: keep night & controls visible */
+  @media (max-width: 880px){
+    .wrap{ padding-bottom: calc(128px + var(--safeBottom)); }
+    .mainRow{ flex-direction: column; overflow:hidden; }
+    .feed{ min-width: 0; }
+    .feedBox{ height: 150px; }
+    .nightPanel{ min-height: 210px; }
+    #nightCard{ min-height: 150px; font-size: 22px; }
+  }
+</style>
 </head>
 
 <body>
+<div class="paperOverlay"></div>
 
-  <!-- START -->
-  <div id="startScreen" class="screen active">
-    <div class="startWrap">
-      <img id="logo" src="assets/logo.png" alt="Survival Challenge" onerror="this.style.display='none'">
-      <div class="byline">(by David Toma)</div>
+<!-- START -->
+<div id="startScreen">
+  <div class="panel startCard">
+    <img id="logoImg" src="assets/logo.png" alt="Survival Challenge Logo" />
+    <p class="startSmall">(by David Toma)</p>
 
-      <div class="startCard paper">
-        <div class="grid2">
-          <div>
-            <label>Your name</label>
-            <input id="nameInput" maxlength="14" placeholder="David" />
-          </div>
-          <div>
-            <label>Room code (max 6)</label>
-            <input id="roomInput" maxlength="6" placeholder="ABCD12" />
-          </div>
-        </div>
-
-        <div class="row" style="margin-top:10px;">
-          <button id="joinBtn" class="btn btnGreen">Join / Create</button>
-          <button id="howBtn" class="btn btnGold">How it works</button>
-        </div>
-
-        <div class="hint" style="margin-top:8px;">
-          Max 4 players. First player becomes <b>Challenger</b>.
-        </div>
-
-        <div class="hint" style="margin-top:8px;">
-          <b>Opis (HR):</b> Preživite 7 noći kao Survivori. Challenger zadaje izazove i upravlja resursima. Previše failova ili izgubljena srca = poraz.
-          <br><br>
-          <b>Description (EN):</b> Survive 7 nights as Survivors. The Challenger sets challenges and controls resources. Too many fails or hearts lost = defeat.
-        </div>
-      </div>
+    <div class="row" style="margin-top:10px;">
+      <input id="playerName" type="text" maxlength="14" placeholder="Your name (e.g. David)" />
+      <input id="roomCode" type="text" maxlength="6" placeholder="ROOM (e.g. ABC123)" />
     </div>
+
+    <div class="row" style="margin-top:10px;">
+      <button id="joinBtn" class="btnGreen">Join / Create</button>
+      <button id="howBtn" class="btnGold">How to play</button>
+    </div>
+
+    <p class="hint" style="margin-top:12px;">
+      Max 4 players. First player becomes <b>Challenger</b>.
+    </p>
   </div>
+</div>
 
-  <!-- GAME -->
-  <div id="gameScreen" class="screen">
-    <div id="hudPanel" class="paper hud">
-      <div class="pill"><small>Phase</small><span id="hudPhase">lobby</span></div>
-      <div class="pill"><small>Role</small><span id="hudRole">—</span></div>
-      <div class="pill"><small>Night</small><span id="hudNight">0/7</span></div>
+<!-- GAME -->
+<div id="gameScreen">
+  <div class="wrap">
 
-      <div class="pill"><small>Fails</small><span id="hudFails">0/3</span></div>
-      <div class="pill"><small>Event</small><span id="hudEvent">—</span></div>
-      <div class="pill"><small>Timer</small><span id="hudTimer">—</span></div>
+    <!-- HUD -->
+    <div class="panel">
+      <div class="hudGrid">
+        <div class="hudCell"><small>Phase</small><span class="hudValue" id="hudPhase">lobby</span></div>
+        <div class="hudCell"><small>Role</small><span class="hudValue" id="hudRole">—</span></div>
 
-      <div class="pill"><small>Supply</small><span id="hudSupply">—</span></div>
-      <div class="pill"><small>Power</small><span id="hudPower">—</span></div>
-      <div class="pill"><small>Hearts</small><span id="hudHearts">—</span></div>
+        <div class="hudCell"><small>Night</small><span class="hudValue" id="hudNight">0/7</span></div>
+        <div class="hudCell"><small>Fails</small><span class="hudValue" id="hudFails">0/3</span></div>
 
-      <div class="pill"><small>Hunger</small><span id="hudHunger">—</span></div>
-      <div class="pill"><small>Players</small><span id="hudPlayers">0/4</span></div>
-      <div class="pill"><small>Sound</small>
-        <button id="soundBtn" class="btn btnSoft" style="padding:8px 10px; font-size:13px;">🔇</button>
+        <div class="hudCell"><small>Event</small><span class="hudValue" id="hudEvent">—</span></div>
+        <div class="hudCell"><small>Timer</small><span class="hudValue" id="hudTimer">—</span></div>
+
+        <div class="hudCell"><small>Supply</small><span class="hudValue" id="hudSupply">—</span></div>
+        <div class="hudCell"><small>Power</small><span class="hudValue" id="hudPower">—</span></div>
+
+        <div class="hudCell"><small>Hearts</small><span class="hudValue" id="hudHearts">—</span></div>
+        <div class="hudCell"><small>Hunger</small><span class="hudValue" id="hudHunger">—</span></div>
+
+        <div class="hudCell"><small>Players</small><span class="hudValue" id="hudPlayers">0/4</span></div>
+        <div class="hudCell"><small>Sound</small>
+          <span class="hudValue">
+            <button id="soundBtn" class="btnGray" style="padding:10px 12px;border-radius:14px;font-size:16px;">🔇</button>
+          </span>
+        </div>
       </div>
     </div>
 
+    <!-- MAIN -->
     <div class="mainRow">
-      <div class="paper feed">
-        <div class="feedTitle">Room Feed</div>
-        <div class="feedBox" id="feedBox"></div>
+
+      <!-- FEED -->
+      <div class="panel feed">
+        <div class="feedHeader">Room Feed</div>
+        <div id="feedBox" class="feedBox"></div>
       </div>
 
-      <div class="paper cardArea">
-        <div class="cardHeader">
-          <div style="font-weight:1000;">Night Card</div>
-          <div class="tag" id="roomCodeTag">ROOM: —</div>
-        </div>
-
-        <div id="nightCard">
-          <div>
-            <div id="nightMain">Waiting…</div>
-            <div id="nightSub">Challenger starts the night</div>
+      <!-- NIGHT + ITEMS -->
+      <div class="cards">
+        <div class="panel nightPanel">
+          <div class="nightTitle">
+            <span>Night Card (3 sec)</span>
+            <span id="nightSub" style="font-weight:900;opacity:.85;">—</span>
           </div>
+          <div id="nightCard">Waiting…</div>
         </div>
 
-        <div class="controls">
-          <button id="inventoryBtn" class="btn btnGold">Inventory</button>
-          <button id="tradeBtn" class="btn btnGold">Trade</button>
-          <button id="pleaseBtn" class="btn btnGold">Please</button>
-          <button id="readyBtn" class="btn btnGreen">Ready</button>
-          <button id="pickChallengeBtn" class="btn btnGreen">Pick Challenge</button>
-          <button id="startNightBtn" class="btn btnRed">Start Night</button>
+        <div class="panel itemsPanel">
+          <div class="itemsTitle">
+            <span>Your Items</span>
+            <span style="font-weight:900;opacity:.85;">tap + / −</span>
+          </div>
+          <div id="itemsGrid" class="itemsGrid"></div>
         </div>
-
-        <div class="hint" id="hintLine">Tip: Open Inventory and add / use items.</div>
       </div>
+
     </div>
   </div>
 
-  <!-- AUDIO -->
-  <audio id="bgMusic" loop>
-    <source src="assets/survival.mp3" type="audio/mpeg">
-  </audio>
+  <!-- BOTTOM CONTROLS -->
+  <div class="controls">
+    <div class="panel controlsInner">
+      <button id="inventoryBtn" class="btnGold">Inventory</button>
+      <button id="tradeBtn" class="btnGold">Trade</button>
 
-  <!-- MODALS -->
-  <div id="modalOverlay" class="overlay">
-    <div id="modalBox" class="paper modal"></div>
+      <button id="pleaseBtn" class="btnGold">Please</button>
+      <button id="roleActionBtn" class="btnGreen">Role Action</button>
+
+      <button id="readyBtn" class="btnGreen">Ready</button>
+      <button id="startNightBtn" class="btnRed">Start Night</button>
+    </div>
   </div>
+</div>
 
-  <div id="toast" class="toast"></div>
+<!-- HOW -->
+<div id="howBack" class="modalBack">
+  <div class="panel modal">
+    <h2>How to play</h2>
+    <div class="hint">
+      Survivors must survive <b>7 nights</b>.
+      Challenger wins if <b>Fails reach 3</b> or all Survivors lose hearts.
+      Challenger manages <b>Supply</b> and approves “Please” requests.
+    </div>
+    <div class="field">
+      <button class="btnGold" id="closeHow">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVENTORY -->
+<div id="invBack" class="modalBack">
+  <div class="panel modal">
+    <h2>Inventory</h2>
+    <div class="hint">Add an item to your inventory (syncs to Firebase).</div>
+    <div class="field">
+      <input id="invInput" type="text" maxlength="18" placeholder="e.g. Rope" />
+      <button id="invAddBtn" class="btnGreen">Add</button>
+      <button id="invCloseBtn" class="btnGold">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRADE -->
+<div id="tradeBack" class="modalBack">
+  <div class="panel modal">
+    <h2>Trade</h2>
+    <div class="hint">Pick player + item (dropdown, no typing).</div>
+
+    <div class="field">
+      <select id="tradePlayer"></select>
+      <select id="tradeItem"></select>
+      <select id="tradeQty">
+        <option value="1">x1</option>
+        <option value="2">x2</option>
+        <option value="3">x3</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <button id="tradeSendBtn" class="btnGreen">Send Offer</button>
+      <button id="tradeCloseBtn" class="btnGold">Close</button>
+    </div>
+
+    <div class="hint">Demo: offers appear in Room Feed.</div>
+  </div>
+</div>
+
+<!-- PLEASE (Survivor sends request) -->
+<div id="pleaseBack" class="modalBack">
+  <div class="panel modal">
+    <h2>Please</h2>
+    <div class="hint">Ask Challenger for help (costs Supply).</div>
+
+    <div class="field">
+      <select id="pleaseType">
+        <option value="item">Item</option>
+        <option value="heal">Heal (+1 heart)</option>
+        <option value="skipfail">Skip Fail (-1 fail)</option>
+      </select>
+
+      <select id="pleaseItem"></select>
+    </div>
+
+    <div class="field">
+      <button id="pleaseSendBtn" class="btnGreen">Send Request</button>
+      <button id="pleaseCloseBtn" class="btnGold">Close</button>
+    </div>
+
+    <div class="hint" id="pleaseNote">Item option lets you request a specific item.</div>
+  </div>
+</div>
+
+<!-- CHALLENGER INBOX (Approve/Reject + cost 1-2 supply) -->
+<div id="inboxBack" class="modalBack">
+  <div class="panel modal">
+    <h2>Challenger Inbox</h2>
+    <div class="hint">Approve requests with cost (1–2 Supply).</div>
+
+    <div class="field">
+      <select id="approveCost">
+        <option value="1">Cost: 1 Supply</option>
+        <option value="2">Cost: 2 Supply</option>
+      </select>
+      <button id="inboxCloseBtn" class="btnGold">Close</button>
+    </div>
+
+    <div id="inboxList" style="padding:6px;"></div>
+  </div>
+</div>
+
+<!-- VIDEO OVERLAY -->
+<div id="videoBack" class="modalBack">
+  <div class="videoWrap">
+    <video id="videoEl" playsinline muted></video>
+    <div class="field" style="justify-content:center;margin-top:10px;">
+      <button id="videoSkipBtn" class="btnGold">Skip</button>
+    </div>
+  </div>
+</div>
 
 <script>
-  /* =========================
-     1) FIREBASE CONFIG (YOUR PROJECT)
-     ========================= */
+  // =========================
+  // FIREBASE CONFIG (YOURS)
+  // =========================
   const firebaseConfig = {
     apiKey: "AIzaSyD6T_zbq3-fhN10aCF9zZtWJxV0eMg8fZQ",
     authDomain: "survivalchallengedt.firebaseapp.com",
@@ -483,971 +499,880 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  /* =========================
-     2) HELPERS
-     ========================= */
-  const $ = (id)=>document.getElementById(id);
-  const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-  const now = ()=>Date.now();
-
-  function toast(msg){
-    const t = $("toast");
-    t.textContent = msg;
-    t.style.display = "block";
-    clearTimeout(toast._tm);
-    toast._tm = setTimeout(()=>t.style.display="none", 1600);
-  }
-
-  function openModal(html){
-    $("modalBox").innerHTML = html;
-    $("modalOverlay").classList.add("active");
-  }
-  function closeModal(){
-    $("modalOverlay").classList.remove("active");
-    $("modalBox").innerHTML = "";
-  }
-  $("modalOverlay").addEventListener("click", (e)=>{
-    if(e.target.id==="modalOverlay") closeModal();
-  });
-
-  function pushFeed(text){
-    if(!currentRoom) return;
-    const ref = db.ref(`rooms/${currentRoom}/feed`).push();
-    ref.set({ t: now(), text });
-  }
-
-  function safeStr(s){ return (s||"").toString().trim(); }
-  function roomCodeNormalize(s){
-    return safeStr(s).toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);
-  }
-
-  /* =========================
-     3) GAME CONSTANTS
-     ========================= */
+  // =========================
+  // CONSTANTS
+  // =========================
   const MAX_PLAYERS = 4;
   const MAX_NIGHTS = 7;
-  const MAX_FAILS = 3;
+  const FAIL_LIMIT = 3;
+  const FEED_LIMIT = 3;
 
-  const ITEM_CATALOG = [
-    { key:"rope",   name:"Rope",   icon:"🪢" },
-    { key:"torch",  name:"Torch",  icon:"🔥" },
-    { key:"berries",name:"Berries",icon:"🫐" },
-    { key:"trap",   name:"Trap",   icon:"🪤" },
-    { key:"water",  name:"Water",  icon:"💧" },
-    { key:"medkit", name:"Medkit", icon:"🩹" },
-    { key:"wood",   name:"Wood",   icon:"🪵" }
+  const ASSETS = {
+    music: "assets/survival.mp3",
+    introCh: "assets/intro_challenger.mp4",
+    introSu: "assets/intro_survivor.mp4",
+    winSurvivors: "assets/win_survivors.mp4",
+    winChallenger: "assets/win_challenger.mp4"
+  };
+
+  // Starter items
+  const START_ITEMS = { Rope: 1, Torch: 1, Berries: 2 };
+
+  const ITEM_ICONS = {
+    Rope: "🪢", Torch: "🔥", Berries: "🍓", Trap: "🪤",
+    Wood: "🪵", Water: "💧", Knife: "🔪", Bandage: "🩹", Meat: "🥩"
+  };
+
+  const PLEASE_ITEMS = ["Rope","Torch","Berries","Bandage","Water","Wood","Trap","Knife","Meat"];
+
+  // Night deck (simple, playable)
+  const NIGHT_DECK = [
+    { title: "Bear", desc: "Need: Trap OR Torch. If not: lose 1 heart.", need: ["Trap","Torch"], penalty: { hearts:-1 } },
+    { title: "Storm", desc: "Need: Rope. If not: +1 fail.", need: ["Rope"], penalty: { fails:+1 } },
+    { title: "Cold Night", desc: "Need: Wood OR Torch. If not: hunger -15.", need: ["Wood","Torch"], penalty: { hunger:-15 } },
+    { title: "Snake Bite", desc: "Need: Bandage. If not: lose 1 heart.", need: ["Bandage"], penalty: { hearts:-1 } },
+    { title: "Hunt Chance", desc: "Need: Knife. If yes: +Meat.", need: ["Knife"], reward: { item:"Meat", qty:1 } }
   ];
-  const START_ITEMS = { rope:1, torch:1, berries:2 };
 
-  const EVENT_LIST = [
-    { title:"Lucky Find", effect:"+1 supply", supplyDelta:+1 },
-    { title:"Cold Wind", effect:"-10 hunger all", hungerDelta:-10 },
-    { title:"Quiet Night", effect:"No effect", hungerDelta:0 },
-    { title:"Rain", effect:"Torch less effective", tag:"rain" },
-    { title:"Wolves Nearby", effect:"Challenge +1 difficulty", diffDelta:+1 }
-  ];
-
-  const CHALLENGES = [
-    { title:"Make Fire", diff:3, hint:"Play Torch or team up." },
-    { title:"Build Shelter", diff:4, hint:"Wood / Rope helps." },
-    { title:"Find Food", diff:3, hint:"Berries / Trap helps." },
-    { title:"Cross River", diff:4, hint:"Rope helps." },
-    { title:"Treat Wounds", diff:3, hint:"Medkit helps." }
-  ];
-
-  function itemByKey(k){ return ITEM_CATALOG.find(x=>x.key===k); }
-  function fmtInv(inv){
-    const parts = [];
-    for(const it of ITEM_CATALOG){
-      const q = inv?.[it.key]||0;
-      if(q>0) parts.push(`${it.icon} ${it.name} x${q}`);
-    }
-    return parts.length? parts.join(", ") : "Empty";
-  }
-
-  /* =========================
-     4) PLAYER + ROOM STATE
-     ========================= */
+  // =========================
+  // STATE
+  // =========================
   let myId = localStorage.getItem("sc_myId");
-  if(!myId){
-    myId = Math.random().toString(36).slice(2,10);
+  if (!myId) {
+    myId = Math.random().toString(36).slice(2, 10);
     localStorage.setItem("sc_myId", myId);
   }
 
-  let currentRoom = null;
-  let isChallenger = false;
-  let roomUnsub = null;
-  let lastRoomData = null;
+  let roomCode = null;
+  let myRole = "—";
+  let soundOn = false;
+  let audio = null;
 
-  const audio = $("bgMusic");
-  let localSoundEnabled = false;
+  // =========================
+  // UI HELPERS
+  // =========================
+  function showStart(){ document.getElementById("startScreen").style.display = "flex"; document.getElementById("gameScreen").style.display = "none"; }
+  function showGame(){ document.getElementById("startScreen").style.display = "none"; document.getElementById("gameScreen").style.display = "block"; }
+  function openModal(id){ document.getElementById(id).style.display = "flex"; }
+  function closeModal(id){ document.getElementById(id).style.display = "none"; }
+  function setText(id, v){ const el = document.getElementById(id); if(el) el.textContent = v; }
 
-  function showScreen(which){
-    $("startScreen").classList.remove("active");
-    $("gameScreen").classList.remove("active");
-    $(which).classList.add("active");
+  function heartsStr(n){
+    const c = Math.max(0, Math.min(9, n|0));
+    return c>0 ? "❤️".repeat(c) : "—";
+  }
+  function iconFor(item){ return ITEM_ICONS[item] || "🎒"; }
+
+  // =========================
+  // VIDEO (muted, mp3 continues)
+  // =========================
+  async function playOverlayVideo(src, maxMs=5200){
+    const back = document.getElementById("videoBack");
+    const vid = document.getElementById("videoEl");
+    const skip = document.getElementById("videoSkipBtn");
+
+    return new Promise((resolve)=>{
+      let done = false;
+
+      function finish(){
+        if(done) return;
+        done = true;
+        try{ vid.pause(); }catch(e){}
+        vid.removeAttribute("src");
+        vid.load();
+        closeModal("videoBack");
+        resolve();
+      }
+
+      skip.onclick = finish;
+
+      openModal("videoBack");
+      vid.muted = true;  // keep mp3 as main audio
+      vid.playsInline = true;
+      vid.src = src;
+
+      const t = setTimeout(finish, maxMs);
+
+      vid.onended = () => { clearTimeout(t); finish(); };
+      vid.onerror = () => { clearTimeout(t); finish(); };
+
+      // muted autoplay usually works; if blocked, still shows with manual play attempt
+      vid.play().catch(()=>{ /* ignore */ });
+    });
   }
 
-  function setHint(text){
-    $("hintLine").textContent = text || "";
+  // =========================
+  // SOUND
+  // =========================
+  function initAudio(){
+    if(audio) return;
+    audio = new Audio(ASSETS.music);
+    audio.loop = true;
+    audio.volume = 0.65;
+  }
+  async function toggleSound(){
+    initAudio();
+    soundOn = !soundOn;
+    document.getElementById("soundBtn").textContent = soundOn ? "🔊" : "🔇";
+    if(soundOn){
+      try{ await audio.play(); }catch(e){}
+    } else {
+      audio.pause();
+    }
+    // anti spam feed
+    if(!window.__lastSoundLog || Date.now() - window.__lastSoundLog > 8000){
+      await pushFeed(soundOn ? "Sound ON." : "Sound OFF.");
+      window.__lastSoundLog = Date.now();
+    }
   }
 
-  /* =========================
-     5) ROOM INIT / JOIN
-     ========================= */
+  // =========================
+  // FEED (limit = 3)
+  // =========================
+  function renderFeed(lines){
+    const box = document.getElementById("feedBox");
+    box.innerHTML = "";
+    lines.forEach(m=>{
+      const d = document.createElement("div");
+      d.className = "feedLine";
+      d.textContent = m;
+      box.appendChild(d);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function pushFeed(msg){
+    if(!roomCode) return;
+    const ref = db.ref(`rooms/${roomCode}/feed`).push();
+    await ref.set({ msg, ts: Date.now() });
+  }
+
+  // =========================
+  // INVENTORY
+  // =========================
+  function renderItems(inv){
+    const grid = document.getElementById("itemsGrid");
+    grid.innerHTML = "";
+    const keys = Object.keys(inv || {}).filter(k => (inv[k]|0) > 0).sort();
+
+    if(keys.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "itemChip";
+      empty.textContent = "Empty inventory.";
+      grid.appendChild(empty);
+      return;
+    }
+
+    keys.forEach(k=>{
+      const chip = document.createElement("div");
+      chip.className = "itemChip";
+
+      const left = document.createElement("span");
+      left.textContent = `${iconFor(k)} ${k} x${inv[k]}`;
+
+      const plus = document.createElement("button");
+      plus.className = "btnGreen miniBtn";
+      plus.textContent = "+";
+      plus.onclick = () => adjustItem(k, +1);
+
+      const minus = document.createElement("button");
+      minus.className = "btnRed miniBtn";
+      minus.textContent = "−";
+      minus.onclick = () => adjustItem(k, -1);
+
+      chip.appendChild(left);
+      chip.appendChild(plus);
+      chip.appendChild(minus);
+      grid.appendChild(chip);
+    });
+  }
+
+  async function adjustItem(item, delta){
+    if(!roomCode) return;
+    const ref = db.ref(`rooms/${roomCode}/players/${myId}/inventory/${item}`);
+    const snap = await ref.get();
+    const cur = (snap.val()|0);
+    const next = Math.max(0, cur + delta);
+    if(next === 0) await ref.remove();
+    else await ref.set(next);
+  }
+
+  async function addItemByName(name){
+    const item = (name||"").trim();
+    if(!item) return;
+    await adjustItem(item, +1);
+  }
+
+  // =========================
+  // WIN CHECK
+  // =========================
+  async function checkWin(room){
+    if(!roomCode || !room) return;
+
+    if((room.fails|0) >= FAIL_LIMIT){
+      await endGame("challenger");
+      return;
+    }
+
+    if((room.night|0) >= MAX_NIGHTS){
+      await endGame("survivors");
+      return;
+    }
+
+    // All survivors hearts <=0 => challenger wins
+    const ps = (await db.ref(`rooms/${roomCode}/players`).get()).val() || {};
+    const surv = Object.values(ps).filter(p=>p.role==="Survivor");
+    if(surv.length>0 && surv.every(p => (p.hearts|0) <= 0)){
+      await endGame("challenger");
+      return;
+    }
+  }
+
+  async function endGame(winner){
+    const roomRef = db.ref(`rooms/${roomCode}`);
+    const room = (await roomRef.get()).val();
+    if(!room || room.phase==="end") return;
+
+    await roomRef.update({ phase:"end", winner });
+
+    await pushFeed(winner==="survivors" ? "Survivors WIN! ✅" : "Challenger WINS! ✅");
+
+    // Show winner video locally
+    if(winner==="survivors") await playOverlayVideo(ASSETS.winSurvivors, 9000);
+    else await playOverlayVideo(ASSETS.winChallenger, 9000);
+  }
+
+  // =========================
+  // NIGHT: Start + Resolve (simple)
+  // =========================
+  async function startNight(){
+    if(!roomCode) return;
+
+    const roomRef = db.ref(`rooms/${roomCode}`);
+    const room = (await roomRef.get()).val();
+    if(!room) return;
+
+    if(room.challengerId !== myId){
+      alert("Only Challenger can Start Night.");
+      return;
+    }
+
+    if(room.phase === "end") return;
+
+    const nextNight = Math.min(MAX_NIGHTS, (room.night||0) + 1);
+    const card = NIGHT_DECK[Math.floor(Math.random()*NIGHT_DECK.length)];
+
+    // reset resolved flags
+    const players = (await db.ref(`rooms/${roomCode}/players`).get()).val() || {};
+    const updates = {};
+    Object.keys(players).forEach(pid=>{
+      updates[`players/${pid}/resolvedNight`] = null;
+    });
+
+    await roomRef.update({
+      phase: "night",
+      night: nextNight,
+      event: card.title,
+      nightCard: { ...card, ts: Date.now() },
+      ...updates
+    });
+
+    await pushFeed(`Night ${nextNight}: ${card.title}`);
+    await checkWin({ ...room, night: nextNight });
+
+    // show card for everyone
+    // (listener handles 3 sec pop)
+  }
+
+  async function roleAction(){
+    if(!roomCode) return;
+
+    const room = (await db.ref(`rooms/${roomCode}`).get()).val();
+    const me = (await db.ref(`rooms/${roomCode}/players/${myId}`).get()).val();
+    if(!room || !me) return;
+
+    // Survivor: resolve current night
+    if(me.role === "Survivor"){
+      if(room.phase !== "night" || !room.nightCard){
+        alert("No active night. Wait for Challenger to start.");
+        return;
+      }
+      openResolveModal(room.nightCard);
+      return;
+    }
+
+    // Challenger: open inbox
+    openModal("inboxBack");
+  }
+
+  // Resolve modal (built inline)
+  function openResolveModal(card){
+    const backId = "resolveBack";
+    let back = document.getElementById(backId);
+    if(back) back.remove();
+
+    back = document.createElement("div");
+    back.id = backId;
+    back.className = "modalBack";
+    back.style.display = "flex";
+
+    back.innerHTML = `
+      <div class="panel modal">
+        <h2>Resolve Night</h2>
+        <div class="hint"><b>${card.title}</b>: ${card.desc}</div>
+        <div class="hint">Need one of: <b>${(card.need||[]).join(" / ") || "—"}</b></div>
+
+        <div class="field">
+          <select id="useItemSel"></select>
+          <button id="useItemBtn" class="btnGreen">Use Item</button>
+          <button id="failBtn" class="btnRed">Fail</button>
+          <button id="closeResolveBtn" class="btnGold">Close</button>
+        </div>
+        <div class="hint">Using the correct item avoids penalty. Failing applies penalty.</div>
+      </div>
+    `;
+
+    document.body.appendChild(back);
+
+    back.addEventListener("click",(e)=>{ if(e.target===back){ back.remove(); } });
+
+    document.getElementById("closeResolveBtn").onclick = () => back.remove();
+
+    // fill inventory
+    db.ref(`rooms/${roomCode}/players/${myId}/inventory`).get().then(snap=>{
+      const inv = snap.val()||{};
+      const sel = document.getElementById("useItemSel");
+      sel.innerHTML = "";
+      const keys = Object.keys(inv).filter(k=>(inv[k]|0)>0).sort();
+      keys.forEach(k=>{
+        const o=document.createElement("option");
+        o.value=k;
+        o.textContent=`${iconFor(k)} ${k} (x${inv[k]})`;
+        sel.appendChild(o);
+      });
+      if(keys.length===0){
+        const o=document.createElement("option");
+        o.value="";
+        o.textContent="(no items)";
+        sel.appendChild(o);
+      }
+    });
+
+    document.getElementById("useItemBtn").onclick = async ()=>{
+      const item = document.getElementById("useItemSel").value;
+      if(!item){ alert("No item."); return; }
+      await resolveNightWithItem(item, card);
+      back.remove();
+    };
+
+    document.getElementById("failBtn").onclick = async ()=>{
+      await resolveNightFail(card);
+      back.remove();
+    };
+  }
+
+  async function resolveNightWithItem(item, card){
+    const need = card.need || [];
+    const ok = need.includes(item);
+
+    // consume item regardless (you chose to use it)
+    await adjustItem(item, -1);
+
+    if(ok && card.reward && card.reward.item){
+      await adjustItem(card.reward.item, +(card.reward.qty||1));
+      await pushFeed(`✅ ${myId.slice(0,4)} used ${item} and found ${card.reward.item}!`);
+    } else if(ok){
+      await pushFeed(`✅ ${myId.slice(0,4)} used ${item}.`);
+    } else {
+      await applyPenalty(card.penalty);
+      await pushFeed(`⚠️ ${myId.slice(0,4)} used wrong item (${item}). Penalty applied.`);
+    }
+
+    await markResolved();
+  }
+
+  async function resolveNightFail(card){
+    await applyPenalty(card.penalty);
+    await pushFeed(`❌ ${myId.slice(0,4)} failed the night. Penalty applied.`);
+    await markResolved();
+  }
+
+  async function applyPenalty(pen){
+    if(!pen) return;
+
+    const roomRef = db.ref(`rooms/${roomCode}`);
+    const meRef = db.ref(`rooms/${roomCode}/players/${myId}`);
+
+    await db.ref().update({
+      ...(pen.fails ? { [`rooms/${roomCode}/fails`]: firebase.database.ServerValue.increment(pen.fails) } : {}),
+      ...(pen.hearts ? { [`rooms/${roomCode}/players/${myId}/hearts`]: firebase.database.ServerValue.increment(pen.hearts) } : {}),
+      ...(pen.hunger ? { [`rooms/${roomCode}/players/${myId}/hunger`]: firebase.database.ServerValue.increment(pen.hunger) } : {})
+    });
+
+    const room = (await roomRef.get()).val();
+    await checkWin(room);
+  }
+
+  async function markResolved(){
+    const room = (await db.ref(`rooms/${roomCode}`).get()).val();
+    if(!room) return;
+
+    await db.ref(`rooms/${roomCode}/players/${myId}/resolvedNight`).set(room.night || 0);
+
+    // check if all survivors resolved => back to lobby
+    const players = (await db.ref(`rooms/${roomCode}/players`).get()).val() || {};
+    const survivors = Object.values(players).filter(p=>p.role==="Survivor");
+    const nightNum = room.night||0;
+    const allResolved = survivors.length>0 && survivors.every(p => (p.resolvedNight|0) === nightNum);
+
+    if(allResolved){
+      // challenger can start next; set phase back
+      await db.ref(`rooms/${roomCode}`).update({ phase:"lobby" });
+      await pushFeed("All Survivors resolved. Back to lobby.");
+    }
+  }
+
+  // =========================
+  // PLEASE SYSTEM
+  // =========================
+  function fillPleaseItems(){
+    const sel = document.getElementById("pleaseItem");
+    sel.innerHTML = "";
+    PLEASE_ITEMS.forEach(it=>{
+      const o=document.createElement("option");
+      o.value=it;
+      o.textContent=`${iconFor(it)} ${it}`;
+      sel.appendChild(o);
+    });
+  }
+
+  async function sendPlease(){
+    const room = (await db.ref(`rooms/${roomCode}`).get()).val();
+    const me = (await db.ref(`rooms/${roomCode}/players/${myId}`).get()).val();
+    if(!room || !me) return;
+
+    if(me.role !== "Survivor"){
+      alert("Challenger uses Inbox (Role Action).");
+      return;
+    }
+
+    const type = document.getElementById("pleaseType").value;
+    const item = document.getElementById("pleaseItem").value;
+
+    const req = {
+      fromId: myId,
+      fromName: me.name || myId.slice(0,4),
+      type,
+      item: type==="item" ? item : null,
+      ts: Date.now(),
+      status: "pending"
+    };
+
+    await db.ref(`rooms/${roomCode}/please`).push().set(req);
+    await pushFeed(`🙏 Please request from ${req.fromName}: ${type}${req.item ? " ("+req.item+")" : ""}`);
+    closeModal("pleaseBack");
+  }
+
+  async function approvePlease(reqId){
+    const cost = parseInt(document.getElementById("approveCost").value,10) || 1;
+
+    const roomRef = db.ref(`rooms/${roomCode}`);
+    const room = (await roomRef.get()).val();
+    if(!room) return;
+
+    if(room.challengerId !== myId){
+      alert("Only Challenger can approve.");
+      return;
+    }
+
+    // Transaction: spend supply safely
+    const supplyRef = db.ref(`rooms/${roomCode}/supply`);
+    const ok = await supplyRef.transaction(cur=>{
+      cur = (cur|0);
+      if(cur < cost) return; // abort
+      return cur - cost;
+    });
+
+    if(!ok.committed){
+      alert("Not enough Supply.");
+      return;
+    }
+
+    const reqRef = db.ref(`rooms/${roomCode}/please/${reqId}`);
+    const req = (await reqRef.get()).val();
+    if(!req || req.status!=="pending"){
+      alert("Request not pending.");
+      return;
+    }
+
+    if(req.type === "item" && req.item){
+      await adjustOtherPlayerItem(req.fromId, req.item, +1);
+      await pushFeed(`✅ Approved: ${req.fromName} gets ${req.item} (cost ${cost} supply).`);
+    } else if(req.type === "heal"){
+      await db.ref(`rooms/${roomCode}/players/${req.fromId}/hearts`).transaction(h=>{
+        h = (h|0);
+        return Math.min(6, h+1);
+      });
+      await pushFeed(`✅ Approved: ${req.fromName} healed +1 heart (cost ${cost} supply).`);
+    } else if(req.type === "skipfail"){
+      await db.ref(`rooms/${roomCode}/fails`).transaction(f=>{
+        f = (f|0);
+        return Math.max(0, f-1);
+      });
+      await pushFeed(`✅ Approved: -1 fail (cost ${cost} supply).`);
+    }
+
+    await reqRef.update({ status:"approved", cost, by: myId, doneTs: Date.now() });
+
+    const newRoom = (await roomRef.get()).val();
+    await checkWin(newRoom);
+  }
+
+  async function rejectPlease(reqId){
+    const room = (await db.ref(`rooms/${roomCode}`).get()).val();
+    if(!room) return;
+
+    if(room.challengerId !== myId){
+      alert("Only Challenger can reject.");
+      return;
+    }
+
+    const reqRef = db.ref(`rooms/${roomCode}/please/${reqId}`);
+    const req = (await reqRef.get()).val();
+    if(!req || req.status!=="pending") return;
+
+    await reqRef.update({ status:"rejected", by: myId, doneTs: Date.now() });
+    await pushFeed(`❌ Rejected: ${req.fromName} (${req.type}${req.item ? " "+req.item : ""})`);
+  }
+
+  async function adjustOtherPlayerItem(pid, item, delta){
+    const ref = db.ref(`rooms/${roomCode}/players/${pid}/inventory/${item}`);
+    const snap = await ref.get();
+    const cur = (snap.val()|0);
+    const next = Math.max(0, cur + delta);
+    if(next === 0) await ref.remove();
+    else await ref.set(next);
+  }
+
+  function renderInbox(listObj){
+    const box = document.getElementById("inboxList");
+    box.innerHTML = "";
+
+    const reqs = Object.entries(listObj||{})
+      .map(([id,v])=>({id,...v}))
+      .filter(x=>x.status==="pending")
+      .sort((a,b)=>(a.ts||0)-(b.ts||0));
+
+    if(reqs.length===0){
+      const d=document.createElement("div");
+      d.className="hint";
+      d.textContent="No pending requests.";
+      box.appendChild(d);
+      return;
+    }
+
+    reqs.forEach(r=>{
+      const card=document.createElement("div");
+      card.className="panel";
+      card.style.margin="8px 6px";
+      card.style.padding="12px";
+      card.style.background="rgba(255,255,255,.78)";
+
+      card.innerHTML = `
+        <div style="font-weight:1000;font-size:18px;margin-bottom:6px;">
+          🙏 ${r.fromName} — ${r.type}${r.item ? " ("+r.item+")" : ""}
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btnGreen miniBtn" data-approve="${r.id}">Approve</button>
+          <button class="btnRed miniBtn" data-reject="${r.id}">Reject</button>
+        </div>
+      `;
+
+      box.appendChild(card);
+    });
+
+    box.querySelectorAll("[data-approve]").forEach(btn=>{
+      btn.onclick = ()=> approvePlease(btn.getAttribute("data-approve"));
+    });
+    box.querySelectorAll("[data-reject]").forEach(btn=>{
+      btn.onclick = ()=> rejectPlease(btn.getAttribute("data-reject"));
+    });
+  }
+
+  // =========================
+  // JOIN / ROOM
+  // =========================
   async function joinOrCreate(){
-    const name = safeStr($("nameInput").value) || ("Player-" + myId.slice(0,4));
-    const code = roomCodeNormalize($("roomInput").value);
-    if(!code) return toast("Enter room code.");
+    const name = (document.getElementById("playerName").value || "").trim() || ("Player-" + myId.slice(0,4));
+    const code = (document.getElementById("roomCode").value || "").trim().toUpperCase();
+    if(!code) { alert("Enter ROOM code (e.g. ABC123)"); return; }
+    if(code.length < 3) { alert("Room code too short."); return; }
 
-    currentRoom = code;
-    $("roomCodeTag").textContent = "ROOM: " + code;
+    roomCode = code;
 
-    const roomRef = db.ref(`rooms/${code}`);
+    const roomRef = db.ref(`rooms/${roomCode}`);
     const snap = await roomRef.get();
 
     if(!snap.exists()){
       await roomRef.set({
-        createdAt: now(),
+        createdAt: Date.now(),
         phase: "lobby",
         night: 0,
         fails: 0,
+        event: "—",
+        timer: "—",
         challengerId: myId,
         supply: 4,
         power: 3,
-        soundOn: false,
-        event: null,
-        currentChallenge: null,
-        timerEndsAt: null,
-        actions: {},
-        pleaseRequests: {},
-        tradeRequests: {},
-        players: {}
+        winner: null
       });
     }
 
-    // load latest
     const room = (await roomRef.get()).val();
+    const playersSnap = await db.ref(`rooms/${roomCode}/players`).get();
+    const players = playersSnap.val() || {};
+    const playerCount = Object.keys(players).length;
 
-    // max players check (ignore if rejoin)
-    const players = room.players || {};
-    const count = Object.keys(players).length;
-    if(!players[myId] && count >= MAX_PLAYERS){
-      currentRoom = null;
-      return alert("Room is full (max 4).");
+    if(playerCount >= MAX_PLAYERS && !players[myId]){
+      alert("Room is full (max 4).");
+      roomCode = null;
+      return;
     }
 
-    isChallenger = (room.challengerId === myId);
+    const isCh = room.challengerId === myId;
+    myRole = isCh ? "Challenger" : "Survivor";
 
-    // set my player record
-    const playerRef = db.ref(`rooms/${code}/players/${myId}`);
-    const existing = (await playerRef.get()).val();
-
-    const basePlayer = existing || {
+    const playerData = {
       id: myId,
       name,
-      role: isChallenger ? "Challenger" : "Survivor",
-      hearts: isChallenger ? 3 : 3,
-      hunger: isChallenger ? null : 70,
+      role: myRole,
+      hearts: 3,
+      hunger: isCh ? null : 70,
       ready: false,
-      inventory: isChallenger ? {} : structuredClone(START_ITEMS)
+      resolvedNight: null,
+      joinedAt: Date.now()
     };
 
-    // update name/role if needed
-    basePlayer.name = name;
-    basePlayer.role = isChallenger ? "Challenger" : "Survivor";
-    await playerRef.set(basePlayer);
+    await db.ref(`rooms/${roomCode}/players/${myId}`).set(playerData);
 
-    // announce join
-    pushFeed(`${name} joined as ${basePlayer.role}.`);
+    // Starter inventory if empty
+    const invRef = db.ref(`rooms/${roomCode}/players/${myId}/inventory`);
+    const invSnap = await invRef.get();
+    if(!invSnap.exists()){
+      await invRef.set(START_ITEMS);
+    }
 
-    // show game + listen
-    showScreen("gameScreen");
+    // Presence cleanup
+    db.ref(`rooms/${roomCode}/players/${myId}`).onDisconnect().remove();
+
+    showGame();
+    await pushFeed(`${name} joined as ${myRole}.`);
+
+    // Intro video (muted)
+    await playOverlayVideo(isCh ? ASSETS.introCh : ASSETS.introSu, 5200);
+
     listenRoom();
-    updateRoleButtons();
   }
 
-  $("joinBtn").onclick = joinOrCreate;
-
-  $("howBtn").onclick = ()=>{
-    openModal(`
-      <h2>How to play</h2>
-      <div class="hint">
-        <b>Goal:</b> Survivors must survive <b>${MAX_NIGHTS} nights</b>.<br>
-        <b>Lose:</b> <b>${MAX_FAILS} fails</b> or all Survivors lose hearts.<br><br>
-        <b>Challenger</b> starts nights, picks challenges, manages Supply/Power and answers <b>Please</b> requests.<br>
-        <b>Survivors</b> use Inventory, Trade and Please to help pass challenges.
-      </div>
-      <button class="btn btnGold" onclick="(${closeModal.toString()})()">Close</button>
-    `);
-  };
-
-  /* =========================
-     6) LISTEN + RENDER
-     ========================= */
+  // =========================
+  // LISTENERS
+  // =========================
   function listenRoom(){
-    if(roomUnsub) roomUnsub.off();
-    const ref = db.ref(`rooms/${currentRoom}`);
-    roomUnsub = ref;
-
-    ref.on("value", snap=>{
-      const data = snap.val();
-      if(!data) return;
-      lastRoomData = data;
-      render(data);
-    });
-  }
-
-  function render(data){
-    // hud
-    $("hudPhase").textContent = data.phase || "—";
-    $("hudNight").textContent = `${data.night||0}/${MAX_NIGHTS}`;
-    $("hudFails").textContent = `${data.fails||0}/${MAX_FAILS}`;
-    $("hudEvent").textContent = data.event?.title || "—";
-
-    $("hudSupply").textContent = (data.supply ?? "—");
-    $("hudPower").textContent = (data.power ?? "—");
-
-    const players = data.players || {};
-    const pcount = Object.keys(players).length;
-    $("hudPlayers").textContent = `${pcount}/${MAX_PLAYERS}`;
-
-    const me = players[myId];
-    if(me){
-      $("hudRole").textContent = me.role || "—";
-      $("hudHearts").textContent = "❤️".repeat(me.hearts||0) || "—";
-      $("hudHunger").textContent = (me.role==="Survivor") ? `${me.hunger ?? 70}/70` : "—";
-    }
-
-    // timer
-    if(data.timerEndsAt){
-      const ms = data.timerEndsAt - now();
-      $("hudTimer").textContent = ms>0 ? Math.ceil(ms/1000) + "s" : "0s";
-    } else {
-      $("hudTimer").textContent = "—";
-    }
-
-    // night card
-    if(data.phase==="lobby"){
-      $("nightMain").textContent = "Lobby";
-      $("nightSub").textContent = "Everyone press Ready.";
-      $("nightCard").classList.remove("pulse");
-    }
-
-    if(data.phase==="night"){
-      const c = data.currentChallenge;
-      $("nightMain").textContent = c?.title || "Challenge…";
-      let extra = c ? `Difficulty: ${c.diff}` : "";
-      if(data.event?.diffDelta) extra += ` (+${data.event.diffDelta} event)`;
-      $("nightSub").textContent = extra || "Survivors choose actions.";
-      $("nightCard").classList.add("pulse");
-    }
-
-    if(data.phase==="resolve"){
-      $("nightMain").textContent = "Resolving…";
-      $("nightSub").textContent = "Calculating outcome.";
-      $("nightCard").classList.remove("pulse");
-    }
-
-    if(data.phase==="end"){
-      $("nightMain").textContent = data.endText || "Game ended";
-      $("nightSub").textContent = "Refresh to play again.";
-      $("nightCard").classList.remove("pulse");
-    }
-
-    // feed
-    renderFeed(data.feed);
-
-    // sound sync: only challenger can toggle, but everyone follows room soundOn
-    if(data.soundOn && !audio._playing){
-      tryPlayAudio();
-    }
-    if(!data.soundOn && audio._playing){
-      audio.pause();
-      audio._playing = false;
-    }
-    $("soundBtn").textContent = data.soundOn ? "🔊" : "🔇";
-
-    updateRoleButtons();
-    maybeAutoResolve(data);
-  }
-
-  function renderFeed(feedObj){
-    const box = $("feedBox");
-    const entries = feedObj ? Object.values(feedObj) : [];
-    entries.sort((a,b)=>(a.t||0)-(b.t||0));
-    const last = entries.slice(-40);
-    box.innerHTML = last.map(x=>`<div class="feedItem">${escapeHtml(x.text||"")}</div>`).join("");
-    box.scrollTop = box.scrollHeight;
-  }
-
-  function escapeHtml(s){
-    return (s||"").toString()
-      .replaceAll("&","&amp;").replaceAll("<","&lt;")
-      .replaceAll(">","&gt;").replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
-  function updateRoleButtons(){
-    const data = lastRoomData;
-    if(!data) return;
-    const me = data.players?.[myId];
-    const role = me?.role;
-
-    $("pickChallengeBtn").disabled = !(role==="Challenger");
-    $("startNightBtn").disabled = !(role==="Challenger");
-
-    $("pleaseBtn").disabled = !(role==="Survivor") || data.phase!=="night";
-    $("tradeBtn").disabled = !me;
-    $("inventoryBtn").disabled = !me;
-
-    // ready allowed in lobby
-    $("readyBtn").disabled = (data.phase!=="lobby");
-
-    // challenger should not have hunger / please
-    if(role==="Challenger"){
-      setHint("You are Challenger. Pick a challenge, manage Supply/Power, approve Please requests.");
-    }else if(role==="Survivor"){
-      setHint(data.phase==="night" ? "Use Please: Item / Heal / Skip Fail. Trade items with others." : "Get ready. Survive 7 nights.");
-    }
-  }
-
-  /* =========================
-     7) SOUND (only Challenger toggles)
-     ========================= */
-  async function tryPlayAudio(){
-    try{
-      await audio.play();
-      audio._playing = true;
-      localSoundEnabled = true;
-    }catch(e){
-      // mobile needs user gesture; show hint
-      audio._playing = false;
-      localSoundEnabled = false;
-    }
-  }
-
-  $("soundBtn").onclick = async ()=>{
-    const data = lastRoomData;
-    if(!data) return;
-    const me = data.players?.[myId];
-    if(!me) return;
-
-    if(me.role!=="Challenger"){
-      toast("Only Challenger controls sound.");
-      // But user gesture can still allow playback when room soundOn is true:
-      if(data.soundOn && !audio._playing) tryPlayAudio();
-      return;
-    }
-
-    const newVal = !data.soundOn;
-    await db.ref(`rooms/${currentRoom}/soundOn`).set(newVal);
-    pushFeed(newVal ? "Sound ON." : "Sound OFF.");
-    if(newVal) tryPlayAudio();
-  };
-
-  /* =========================
-     8) READY / LOBBY START CONDITIONS
-     ========================= */
-  $("readyBtn").onclick = async ()=>{
-    const data = lastRoomData;
-    if(!data) return;
-    if(data.phase!=="lobby") return;
-
-    const me = data.players?.[myId];
-    if(!me) return;
-
-    const newReady = !me.ready;
-    await db.ref(`rooms/${currentRoom}/players/${myId}/ready`).set(newReady);
-    pushFeed(`${me.name} is ${newReady ? "READY" : "NOT ready"}.`);
-  };
-
-  function allSurvivorsReady(data){
-    const players = data.players||{};
-    const vals = Object.values(players);
-    const survivors = vals.filter(p=>p.role==="Survivor");
-    if(survivors.length===0) return false;
-    return survivors.every(p=>p.ready);
-  }
-
-  /* =========================
-     9) INVENTORY MODAL
-     ========================= */
-  $("inventoryBtn").onclick = ()=>{
-    const data = lastRoomData;
-    const me = data?.players?.[myId];
-    if(!me) return;
-
-    const inv = me.inventory || {};
-    const rows = ITEM_CATALOG.map(it=>{
-      const q = inv[it.key]||0;
-      return `<div class="listRow"><span>${it.icon} ${it.name}</span><span>x${q}</span></div>`;
-    }).join("");
-
-    openModal(`
-      <h2>Inventory</h2>
-      <div class="hint">Your items. Survivors start with Rope, Torch, Berries.</div>
-      <div class="list">${rows}</div>
-      <button class="btn btnGold" onclick="(${closeModal.toString()})()">Close</button>
-    `);
-  };
-
-  /* =========================
-     10) TRADE (dropdowns, no typing)
-     ========================= */
-  $("tradeBtn").onclick = ()=>{
-    const data = lastRoomData;
-    const players = data?.players||{};
-    const me = players[myId];
-    if(!me) return;
-
-    const others = Object.values(players).filter(p=>p.id!==myId);
-    const inv = me.inventory||{};
-
-    const itemOptions = ITEM_CATALOG
-      .filter(it => (inv[it.key]||0)>0)
-      .map(it=>`<option value="${it.key}">${it.icon} ${it.name} (x${inv[it.key]})</option>`)
-      .join("") || `<option value="">(No items)</option>`;
-
-    const playerOptions = others.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (${p.role})</option>`).join("")
-      || `<option value="">(No other players)</option>`;
-
-    const incoming = data.tradeRequests || {};
-    const incomingRows = Object.values(incoming)
-      .filter(r=>r.to===myId)
-      .slice(-12)
-      .map(r=>{
-        const it = itemByKey(r.item);
-        return `
-          <div class="listRow">
-            <span>${escapeHtml(r.fromName)} → you: ${it?.icon||""} ${it?.name||r.item} x${r.qty}</span>
-            <span style="display:flex; gap:8px;">
-              <button class="btn btnGreen" style="padding:8px 10px; font-size:13px;"
-                onclick="acceptTrade('${r.id}')">Accept</button>
-              <button class="btn btnRed" style="padding:8px 10px; font-size:13px;"
-                onclick="declineTrade('${r.id}')">Decline</button>
-            </span>
-          </div>
-        `;
-      }).join("") || `<div class="hint">No incoming trades.</div>`;
-
-    openModal(`
-      <h2>Trade</h2>
-      <div class="hint">Send an item to another player (dropdowns).</div>
-      <div class="row">
-        <div>
-          <label>Item</label>
-          <select id="tradeItem">${itemOptions}</select>
-        </div>
-        <div>
-          <label>Qty</label>
-          <select id="tradeQty">
-            <option value="1">1</option>
-            <option value="2">2</option>
-          </select>
-        </div>
-        <div>
-          <label>To player</label>
-          <select id="tradeTo">${playerOptions}</select>
-        </div>
-      </div>
-      <button class="btn btnGold" onclick="sendTrade()">Send Trade</button>
-
-      <h2 style="margin-top:8px;">Incoming</h2>
-      <div class="list">${incomingRows}</div>
-
-      <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
-    `);
-
-    // attach to window for modal buttons
-    window.sendTrade = async ()=>{
-      const it = $("tradeItem")?.value;
-      const qty = parseInt($("tradeQty")?.value||"1",10);
-      const to = $("tradeTo")?.value;
-      if(!it) return toast("No item to trade.");
-      if(!to) return toast("No target player.");
-      const have = inv[it]||0;
-      if(have<qty) return toast("Not enough.");
-
-      // create request
-      const id = db.ref(`rooms/${currentRoom}/tradeRequests`).push().key;
-      await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).set({
-        id,
-        from: myId,
-        fromName: me.name,
-        to,
-        item: it,
-        qty,
-        t: now()
-      });
-      pushFeed(`${me.name} offered a trade.`);
-      toast("Trade sent.");
-    };
-
-    window.acceptTrade = async (id)=>{
-      const data2 = lastRoomData;
-      const req = data2?.tradeRequests?.[id];
-      if(!req || req.to!==myId) return;
-
-      const me2 = data2.players?.[myId];
-      const fromP = data2.players?.[req.from];
-      if(!me2 || !fromP) return;
-
-      const fromInvRef = db.ref(`rooms/${currentRoom}/players/${req.from}/inventory/${req.item}`);
-      const toInvRef   = db.ref(`rooms/${currentRoom}/players/${myId}/inventory/${req.item}`);
-
-      const fromQty = (fromP.inventory?.[req.item]||0);
-      if(fromQty < req.qty){
-        await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).remove();
-        return toast("Sender no longer has item.");
-      }
-
-      // transfer
-      await fromInvRef.set(fromQty - req.qty);
-      const myQty = (me2.inventory?.[req.item]||0);
-      await toInvRef.set(myQty + req.qty);
-
-      await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).remove();
-      pushFeed(`Trade accepted: ${fromP.name} → ${me2.name}.`);
-      toast("Trade accepted.");
-    };
-
-    window.declineTrade = async (id)=>{
-      const data2 = lastRoomData;
-      const req = data2?.tradeRequests?.[id];
-      if(!req || req.to!==myId) return;
-      await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).remove();
-      pushFeed(`Trade declined.`);
-      toast("Declined.");
-    };
-  };
-
-  /* =========================
-     11) CHALLENGE PICK + START NIGHT
-     ========================= */
-  $("pickChallengeBtn").onclick = ()=>{
-    const data = lastRoomData;
-    const me = data?.players?.[myId];
-    if(!me || me.role!=="Challenger") return;
-
-    const options = CHALLENGES.map((c,i)=>`
-      <div class="listRow">
-        <span><b>${escapeHtml(c.title)}</b> (diff ${c.diff})</span>
-        <button class="btn btnGreen" style="padding:8px 10px; font-size:13px;" onclick="pickC(${i})">Pick</button>
-      </div>
-    `).join("");
-
-    openModal(`
-      <h2>Pick Challenge</h2>
-      <div class="hint">Pick a challenge for tonight (or random). Event can modify difficulty.</div>
-      <div class="list">${options}</div>
-      <button class="btn btnGold" onclick="pickRandom()">Random</button>
-      <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
-    `);
-
-    window.pickC = async (i)=>{
-      const c = CHALLENGES[i];
-      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(c);
-      pushFeed(`Challenger picked: ${c.title}.`);
-      closeModal();
-    };
-    window.pickRandom = async ()=>{
-      const c = CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
-      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(c);
-      pushFeed(`Challenger picked (random): ${c.title}.`);
-      closeModal();
-    };
-  };
-
-  $("startNightBtn").onclick = async ()=>{
-    const data = lastRoomData;
-    const me = data?.players?.[myId];
-    if(!me || me.role!=="Challenger") return;
-
-    if(data.phase !== "lobby" && data.phase !== "night") {
-      // allow from resolve/end? no
-    }
-
-    // require at least 1 survivor
-    const surv = Object.values(data.players||{}).filter(p=>p.role==="Survivor");
-    if(surv.length===0) return alert("Need at least 1 Survivor.");
-
-    // if lobby, require survivors ready
-    if(data.phase==="lobby" && !allSurvivorsReady(data)){
-      return alert("All Survivors must be READY.");
-    }
-
-    // choose challenge if none
-    let challenge = data.currentChallenge;
-    if(!challenge){
-      challenge = CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
-      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(challenge);
-    }
-
-    // random event each night
-    const ev = EVENT_LIST[Math.floor(Math.random()*EVENT_LIST.length)];
-    await db.ref(`rooms/${currentRoom}/event`).set(ev);
-
-    // reset action buckets
-    await db.ref(`rooms/${currentRoom}/actions`).set({});
-    await db.ref(`rooms/${currentRoom}/pleaseRequests`).set({});
-
-    // increment night
-    const nextNight = (data.night||0) + 1;
-    await db.ref(`rooms/${currentRoom}/night`).set(nextNight);
-
-    // set phase to night + timer
-    const endsAt = now() + 30000; // 30s
-    await db.ref(`rooms/${currentRoom}`).update({
-      phase: "night",
-      timerEndsAt: endsAt
-    });
-
-    // reset ready flags for survivors for next lobby later
-    for(const p of Object.values(data.players||{})){
-      if(p.role==="Survivor"){
-        db.ref(`rooms/${currentRoom}/players/${p.id}/ready`).set(false);
-      }
-    }
-
-    pushFeed(`Night ${nextNight} started: ${challenge.title} (${ev.title}).`);
-  };
-
-  /* =========================
-     12) PLEASE (3 options) + Challenger cost 1-2 supply
-     ========================= */
-  $("pleaseBtn").onclick = ()=>{
-    const data = lastRoomData;
-    if(!data || data.phase!=="night") return;
-
-    const me = data.players?.[myId];
-    if(!me || me.role!=="Survivor") return;
-
-    const inv = me.inventory||{};
-    const invOptions = ITEM_CATALOG
-      .filter(it => (inv[it.key]||0)>0)
-      .map(it=>`<option value="${it.key}">${it.icon} ${it.name} (x${inv[it.key]})</option>`)
-      .join("") || `<option value="">(No items)</option>`;
-
-    openModal(`
-      <h2>Please</h2>
-      <div class="hint">
-        Choose one option for this night. Challenger will approve and choose cost (1–2 supply).
-      </div>
-
-      <div class="paper" style="padding:10px; border-radius:14px; border:1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.75);">
-        <label>Option</label>
-        <select id="plType">
-          <option value="item">Item (use 1 item)</option>
-          <option value="heal">Heal (+1 heart)</option>
-          <option value="skipfail">Skip Fail (protect team)</option>
-        </select>
-
-        <div id="plItemBox" style="margin-top:10px;">
-          <label>Pick item</label>
-          <select id="plItem">${invOptions}</select>
-        </div>
-
-        <div class="row" style="margin-top:10px;">
-          <button class="btn btnGold" onclick="sendPlease()">Send</button>
-          <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
-        </div>
-      </div>
-    `);
-
-    $("plType").onchange = ()=>{
-      const t = $("plType").value;
-      $("plItemBox").style.display = (t==="item") ? "block" : "none";
-    };
-
-    window.sendPlease = async ()=>{
-      const t = $("plType").value;
-      const item = $("plItem")?.value || null;
-
-      if(t==="item" && !item) return toast("No item.");
-
-      const id = db.ref(`rooms/${currentRoom}/pleaseRequests`).push().key;
-      await db.ref(`rooms/${currentRoom}/pleaseRequests/${id}`).set({
-        id,
-        from: myId,
-        fromName: me.name,
-        type: t,
-        item,
-        status: "pending",
-        cost: 1,
-        t: now()
-      });
-
-      pushFeed(`${me.name} sent a Please request.`);
-      toast("Please sent.");
-      closeModal();
-    };
-  };
-
-  /* Challenger sees & approves Please requests automatically via Role Action (reuse PickChallengeBtn slot) */
-  $("pickChallengeBtn").addEventListener("contextmenu", (e)=>e.preventDefault()); // no menu
-
-  // Add a "Role Action" style: long press not reliable, so we show approvals inside Pick Challenge modal for Challenger during night:
-  $("pickChallengeBtn").onclick = ()=>{
-    const data = lastRoomData;
-    const me = data?.players?.[myId];
-    if(!me || me.role!=="Challenger") return;
-
-    const reqs = Object.values(data.pleaseRequests||{}).sort((a,b)=>(a.t||0)-(b.t||0));
-    const pending = reqs.filter(r=>r.status==="pending");
-    const reqRows = pending.map(r=>{
-      const typeLabel = r.type==="item" ? `Item: ${(itemByKey(r.item)?.icon||"")} ${(itemByKey(r.item)?.name||r.item)}`
-                       : r.type==="heal" ? "Heal (+1 heart)"
-                       : "Skip Fail";
-      return `
-        <div class="listRow">
-          <span><b>${escapeHtml(r.fromName)}</b> — ${escapeHtml(typeLabel)}</span>
-          <span style="display:flex; gap:8px; align-items:center;">
-            <select id="cost_${r.id}" style="padding:8px; border-radius:12px;">
-              <option value="1">Cost 1</option>
-              <option value="2">Cost 2</option>
-            </select>
-            <button class="btn btnGreen" style="padding:8px 10px; font-size:13px;" onclick="approvePlease('${r.id}')">Approve</button>
-            <button class="btn btnRed" style="padding:8px 10px; font-size:13px;" onclick="denyPlease('${r.id}')">Deny</button>
-          </span>
-        </div>
-      `;
-    }).join("") || `<div class="hint">No pending Please requests.</div>`;
-
-    // Also allow picking challenge in same modal
-    const chRows = CHALLENGES.map((c,i)=>`
-      <div class="listRow">
-        <span><b>${escapeHtml(c.title)}</b> (diff ${c.diff})</span>
-        <button class="btn btnGold" style="padding:8px 10px; font-size:13px;" onclick="pickC(${i})">Set</button>
-      </div>
-    `).join("");
-
-    openModal(`
-      <h2>Challenger Panel</h2>
-      <div class="hint">Approve Please (choose cost 1–2 Supply). You can also set tonight's challenge.</div>
-
-      <h2 style="margin-top:6px;">Please Requests</h2>
-      <div class="list">${reqRows}</div>
-
-      <h2 style="margin-top:6px;">Set Challenge</h2>
-      <div class="list">${chRows}</div>
-
-      <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
-    `);
-
-    window.pickC = async (i)=>{
-      const c = CHALLENGES[i];
-      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(c);
-      pushFeed(`Challenger set challenge: ${c.title}.`);
-      toast("Challenge set.");
-    };
-
-    window.approvePlease = async (id)=>{
-      const data2 = lastRoomData;
-      const req = data2?.pleaseRequests?.[id];
-      if(!req || req.status!=="pending") return;
-      const cost = parseInt(document.getElementById(`cost_${id}`)?.value || "1",10);
-
-      const supply = data2.supply ?? 0;
-      if(supply < cost) return alert("Not enough Supply.");
-
-      // deduct supply
-      await db.ref(`rooms/${currentRoom}/supply`).set(supply - cost);
-
-      // mark approved
-      await db.ref(`rooms/${currentRoom}/pleaseRequests/${id}`).update({ status:"approved", cost });
-
-      // apply effect
-      await applyPleaseApproved(req);
-
-      pushFeed(`Approved Please for ${req.fromName} (cost ${cost}).`);
-      toast("Approved.");
-    };
-
-    window.denyPlease = async (id)=>{
-      const data2 = lastRoomData;
-      const req = data2?.pleaseRequests?.[id];
-      if(!req || req.status!=="pending") return;
-      await db.ref(`rooms/${currentRoom}/pleaseRequests/${id}`).update({ status:"denied" });
-      pushFeed(`Denied Please for ${req.fromName}.`);
-      toast("Denied.");
-    };
-  };
-
-  async function applyPleaseApproved(req){
-    const data = lastRoomData;
-    if(!data) return;
-
-    const p = data.players?.[req.from];
-    if(!p) return;
-
-    if(req.type==="item"){
-      const it = req.item;
-      const have = p.inventory?.[it]||0;
-      if(have<=0) return;
-
-      // consume item
-      await db.ref(`rooms/${currentRoom}/players/${req.from}/inventory/${it}`).set(have-1);
-
-      // add "support" action
-      await db.ref(`rooms/${currentRoom}/actions/${req.from}`).set({
-        type:"item",
-        item: it,
-        value: itemSupportValue(it, data.event),
-        t: now()
-      });
-    }
-
-    if(req.type==="heal"){
-      const hearts = p.hearts||0;
-      await db.ref(`rooms/${currentRoom}/players/${req.from}/hearts`).set(clamp(hearts+1,0,5));
-      await db.ref(`rooms/${currentRoom}/actions/${req.from}`).set({ type:"heal", value:1, t: now() });
-    }
-
-    if(req.type==="skipfail"){
-      await db.ref(`rooms/${currentRoom}/actions/${req.from}`).set({ type:"skipfail", value:1, t: now() });
-    }
-  }
-
-  function itemSupportValue(itemKey, event){
-    let v = 1;
-    if(itemKey==="torch") v = 2;
-    if(itemKey==="trap") v = 2;
-    if(itemKey==="berries") v = 1;
-    if(itemKey==="rope") v = 2;
-    if(itemKey==="medkit") v = 2;
-    if(event?.tag==="rain" && itemKey==="torch") v = 1; // nerf torch in rain
-    return v;
-  }
-
-  /* =========================
-     13) AUTO-RESOLVE when timer ends OR all survivors have an action
-     ========================= */
-  async function maybeAutoResolve(data){
-    if(!data || data.phase!=="night") return;
-    if(!data.timerEndsAt) return;
-
-    const ms = data.timerEndsAt - now();
-    if(ms > 0) return;
-
-    // avoid multiple resolves
-    const resolveLockRef = db.ref(`rooms/${currentRoom}/resolveLock`);
-    const lockSnap = await resolveLockRef.get();
-    const lock = lockSnap.val();
-    if(lock && now()-lock < 8000) return; // already resolving
-
-    await resolveLockRef.set(now());
-    await resolveNight();
-  }
-
-  async function resolveNight(){
-    const roomRef = db.ref(`rooms/${currentRoom}`);
-    const data = (await roomRef.get()).val();
-    if(!data || data.phase!=="night") return;
-
-    await roomRef.update({ phase:"resolve", timerEndsAt:null });
-
-    const players = data.players||{};
-    const survivors = Object.values(players).filter(p=>p.role==="Survivor");
-    const challenge = data.currentChallenge || CHALLENGES[0];
-    const event = data.event || null;
-
-    let diff = challenge.diff || 3;
-    if(event?.diffDelta) diff += event.diffDelta;
-
-    // compute team support
-    const actions = data.actions||{};
-    let support = 0;
-    let hasSkipFail = false;
-
-    for(const s of survivors){
-      const a = actions[s.id];
-      if(!a) continue;
-      if(a.type==="item") support += (a.value||0);
-      if(a.type==="heal") support += 0; // heal doesn't help pass challenge
-      if(a.type==="skipfail") hasSkipFail = true;
-    }
-
-    const success = support >= diff;
-
-    // hunger tick for survivors each night
-    for(const s of survivors){
-      const h = s.hunger ?? 70;
-      const delta = (event?.hungerDelta || 0);
-      const newH = clamp(h - 10 + delta, 0, 70);
-      await db.ref(`rooms/${currentRoom}/players/${s.id}/hunger`).set(newH);
-      if(newH===0){
-        const hearts = s.hearts||0;
-        if(hearts>0) await db.ref(`rooms/${currentRoom}/players/${s.id}/hearts`).set(hearts-1);
-      }
-    }
-
-    if(success){
-      pushFeed(`✅ Success! Support ${support}/${diff}.`);
-    }else{
-      if(hasSkipFail){
-        pushFeed(`🛡️ Fail avoided by Skip Fail! Support ${support}/${diff}.`);
-      }else{
-        const newFails = (data.fails||0) + 1;
-        await db.ref(`rooms/${currentRoom}/fails`).set(newFails);
-        pushFeed(`❌ Failed! Support ${support}/${diff}. Fails now ${newFails}/${MAX_FAILS}.`);
-
-        // lose 1 heart from a random survivor
-        if(survivors.length){
-          const victim = survivors[Math.floor(Math.random()*survivors.length)];
-          const hearts = victim.hearts||0;
-          if(hearts>0){
-            await db.ref(`rooms/${currentRoom}/players/${victim.id}/hearts`).set(hearts-1);
-            pushFeed(`💔 ${victim.name} lost 1 heart.`);
-          }
+    // Room state
+    db.ref(`rooms/${roomCode}`).on("value", async (snap)=>{
+      const r = snap.val();
+      if (!r) return;
+
+      setText("hudPhase", r.phase || "—");
+      setText("hudNight", `${r.night||0}/${MAX_NIGHTS}`);
+      setText("hudFails", `${r.fails||0}/${FAIL_LIMIT}`);
+      setText("hudEvent", r.event || "—");
+      setText("hudTimer", r.timer || "—");
+      setText("hudSupply", (r.supply ?? "—"));
+      setText("hudPower", (r.power ?? "—"));
+
+      // Night card show 3 sec on new
+      if (r.nightCard && r.nightCard.title){
+        const age = Date.now() - (r.nightCard.ts || 0);
+        if(age < 3500){
+          const el = document.getElementById("nightCard");
+          el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
+          el.innerHTML = `<div>
+            <div style="font-size:28px;font-weight:1000;margin-bottom:6px;">${r.nightCard.title}</div>
+            <div style="font-size:15px;font-weight:900;opacity:.92;">${r.nightCard.desc || ""}</div>
+            <div style="margin-top:8px;font-size:14px;font-weight:900;opacity:.85;">Need: ${(r.nightCard.need||[]).join(" / ") || "—"}</div>
+          </div>`;
+          setText("nightSub","LIVE");
+        } else {
+          setText("nightSub","—");
         }
       }
-    }
 
-    // check win/lose
-    const dataAfter = (await roomRef.get()).val();
-    const playersAfter = dataAfter.players||{};
-    const survAfter = Object.values(playersAfter).filter(p=>p.role==="Survivor");
-    const anyAlive = survAfter.some(p=>(p.hearts||0)>0);
+      // Winner state -> show video once per client
+      if(r.phase === "end" && r.winner && !window.__winnerShown){
+        window.__winnerShown = true;
+        if(r.winner === "survivors") await playOverlayVideo(ASSETS.winSurvivors, 9000);
+        else await playOverlayVideo(ASSETS.winChallenger, 9000);
+      }
 
-    if((dataAfter.fails||0) >= MAX_FAILS || !anyAlive){
-      await roomRef.update({
-        phase:"end",
-        endText: "DEFEAT",
-      });
-      pushFeed("Game Over: Defeat.");
-      return;
-    }
-
-    if((dataAfter.night||0) >= MAX_NIGHTS){
-      await roomRef.update({
-        phase:"end",
-        endText: "VICTORY",
-      });
-      pushFeed("Game Over: Victory!");
-      return;
-    }
-
-    // back to lobby
-    await roomRef.update({
-      phase:"lobby",
-      currentChallenge: null,
-      event: null,
-      actions: {},
-      pleaseRequests: {},
-      tradeRequests: {}
+      await checkWin(r);
     });
-    pushFeed("Back to lobby. Press Ready for next night.");
+
+    // Players state
+    db.ref(`rooms/${roomCode}/players`).on("value", snap=>{
+      const players = snap.val() || {};
+      const ids = Object.keys(players);
+
+      setText("hudPlayers", `${ids.length}/${MAX_PLAYERS}`);
+
+      const me = players[myId];
+      if(me){
+        setText("hudRole", me.role || "—");
+        setText("hudHearts", heartsStr(me.hearts ?? 0));
+        setText("hudHunger", (me.role === "Challenger") ? "—" : ((me.hunger ?? 0) + ""));
+      }
+
+      // trade player dropdown
+      const sel = document.getElementById("tradePlayer");
+      if(sel){
+        const cur = sel.value;
+        sel.innerHTML = "";
+        ids.filter(id=>id!==myId).forEach(id=>{
+          const o = document.createElement("option");
+          o.value = id;
+          o.textContent = players[id].name || ("Player-" + id.slice(0,4));
+          sel.appendChild(o);
+        });
+        if(cur) sel.value = cur;
+      }
+    });
+
+    // My inventory
+    db.ref(`rooms/${roomCode}/players/${myId}/inventory`).on("value", snap=>{
+      const inv = snap.val() || {};
+      renderItems(inv);
+
+      // trade item dropdown
+      const itSel = document.getElementById("tradeItem");
+      if(itSel){
+        const cur = itSel.value;
+        itSel.innerHTML = "";
+        const keys = Object.keys(inv).filter(k => (inv[k]|0) > 0).sort();
+        keys.forEach(k=>{
+          const o = document.createElement("option");
+          o.value = k;
+          o.textContent = `${iconFor(k)} ${k} (x${inv[k]})`;
+          itSel.appendChild(o);
+        });
+        if(keys.includes(cur)) itSel.value = cur;
+      }
+    });
+
+    // Feed: only last 3
+    db.ref(`rooms/${roomCode}/feed`).orderByChild("ts").limitToLast(FEED_LIMIT).on("value", snap=>{
+      const obj = snap.val() || {};
+      const arr = Object.values(obj).sort((a,b)=>(a.ts||0)-(b.ts||0)).map(x=>x.msg);
+      renderFeed(arr);
+    });
+
+    // Please inbox (Challenger)
+    db.ref(`rooms/${roomCode}/please`).orderByChild("ts").limitToLast(30).on("value", snap=>{
+      const reqs = snap.val() || {};
+      renderInbox(reqs);
+    });
   }
 
-  /* =========================
-     14) SAFETY: if assets missing show a hint
-     ========================= */
-  window.addEventListener("error", (e)=>{
-    // quiet
+  // =========================
+  // READY / TRADE
+  // =========================
+  async function toggleReady(){
+    if(!roomCode) return;
+    const ref = db.ref(`rooms/${roomCode}/players/${myId}/ready`);
+    const snap = await ref.get();
+    const cur = !!snap.val();
+    await ref.set(!cur);
+    await pushFeed(`${(!cur) ? "Ready ✅" : "Not ready ❌"}`);
+  }
+
+  async function sendTrade(){
+    if(!roomCode) return;
+
+    const targetId = document.getElementById("tradePlayer").value;
+    const item = document.getElementById("tradeItem").value;
+    const qty = parseInt(document.getElementById("tradeQty").value, 10) || 1;
+
+    if(!targetId){ alert("No target player."); return; }
+    if(!item){ alert("No item to trade."); return; }
+
+    const haveSnap = await db.ref(`rooms/${roomCode}/players/${myId}/inventory/${item}`).get();
+    const have = haveSnap.val()|0;
+    if(have < qty){ alert("Not enough of that item."); return; }
+
+    await pushFeed(`Trade offer: ${item} x${qty} → ${targetId.slice(0,4)}`);
+    closeModal("tradeBack");
+  }
+
+  // =========================
+  // WIRE UI
+  // =========================
+  showStart();
+
+  document.getElementById("joinBtn").onclick = joinOrCreate;
+  document.getElementById("howBtn").onclick = () => openModal("howBack");
+  document.getElementById("closeHow").onclick = () => closeModal("howBack");
+
+  document.getElementById("inventoryBtn").onclick = () => openModal("invBack");
+  document.getElementById("invCloseBtn").onclick = () => closeModal("invBack");
+  document.getElementById("invAddBtn").onclick = async () => {
+    const v = document.getElementById("invInput").value;
+    document.getElementById("invInput").value = "";
+    await addItemByName(v);
+    await pushFeed(`Added item: ${v}`);
+  };
+
+  document.getElementById("tradeBtn").onclick = () => openModal("tradeBack");
+  document.getElementById("tradeCloseBtn").onclick = () => closeModal("tradeBack");
+  document.getElementById("tradeSendBtn").onclick = sendTrade;
+
+  document.getElementById("pleaseBtn").onclick = async () => {
+    if(!roomCode) return;
+    const me = (await db.ref(`rooms/${roomCode}/players/${myId}`).get()).val();
+    if(me && me.role === "Challenger"){
+      openModal("inboxBack");
+      return;
+    }
+    fillPleaseItems();
+    openModal("pleaseBack");
+  };
+  document.getElementById("pleaseCloseBtn").onclick = () => closeModal("pleaseBack");
+  document.getElementById("pleaseSendBtn").onclick = sendPlease;
+
+  document.getElementById("roleActionBtn").onclick = roleAction;
+
+  document.getElementById("inboxCloseBtn").onclick = () => closeModal("inboxBack");
+
+  document.getElementById("readyBtn").onclick = toggleReady;
+  document.getElementById("startNightBtn").onclick = startNight;
+
+  document.getElementById("soundBtn").onclick = toggleSound;
+
+  // Please type UI
+  document.getElementById("pleaseType").onchange = () => {
+    const t = document.getElementById("pleaseType").value;
+    document.getElementById("pleaseItem").style.display = (t==="item") ? "inline-block" : "none";
+    document.getElementById("pleaseNote").textContent =
+      t==="item" ? "Request a specific item." :
+      t==="heal" ? "Ask Challenger for +1 heart." :
+      "Ask Challenger to remove 1 fail.";
+  };
+  // init visibility
+  document.getElementById("pleaseItem").style.display = "inline-block";
+
+  // Close modals by clicking outside
+  ["howBack","invBack","tradeBack","pleaseBack","inboxBack","videoBack"].forEach(id=>{
+    const el = document.getElementById(id);
+    el.addEventListener("click",(e)=>{ if(e.target===el) closeModal(id); });
   });
-
 </script>
-
 </body>
 </html>
