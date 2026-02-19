@@ -311,6 +311,53 @@
       display:none;
       z-index:10000;
     }
+/* === MOBILE FIX: make Night Card + buttons always visible === */
+@media (max-width: 880px){
+  .mainRow{
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Limit feed height so card area fits */
+  .feed{
+    width: 100%;
+    flex: 0 0 auto;
+    max-height: 210px;
+    min-height: 160px;
+  }
+  .feedBox{ max-height: 150px; }
+
+  /* Card area MUST be visible and fill the rest */
+  .cardArea{
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+  }
+
+  /* Night card always takes space */
+  #nightCard{
+    flex: 1 1 auto;
+    min-height: 180px;
+  }
+
+  /* Controls always visible at bottom */
+  .controls{
+    position: sticky;
+    bottom: calc(8px + var(--safeBottom));
+    z-index: 50;
+  }
+}
+
+/* === EXTRA: allow page to scroll if needed === */
+#gameScreen{
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
   </style>
 </head>
 
