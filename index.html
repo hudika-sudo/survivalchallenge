@@ -9,320 +9,112 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
-<style>
-  :root{
-    --safeTop: env(safe-area-inset-top, 0px);
-    --safeBottom: env(safe-area-inset-bottom, 0px);
-    --stroke: rgba(0,0,0,.20);
-    --shadow: rgba(0,0,0,.22);
-    --ink: #1a130d;
-  }
+/* ===== BACKGROUND ===== */
 
-  *{ box-sizing:border-box; }
-  html, body{ height:100%; }
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  color:#2b1d0e;
 
-  body{
-    margin:0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    color: var(--ink);
-    height:100svh;
-    overflow:hidden;
+  background:url("assets/wood.png");
+  background-size:cover;
+  background-attachment:fixed;
+}
 
-    background: url("assets/wood.png") center/cover no-repeat fixed;
-  }
-  @media (max-width: 768px){
-    body{ background-attachment: scroll; }
-  }
+/* PAPER OVERLAY */
 
-  /* Subtle vignette to make UI pop */
-  body:before{
-    content:"";
-    position:fixed; inset:0;
-    background: radial-gradient(1200px 700px at 50% 15%, rgba(255,255,255,.10), transparent 60%),
-                radial-gradient(900px 600px at 20% 0%, rgba(255,255,255,.06), transparent 55%),
-                radial-gradient(900px 600px at 90% 20%, rgba(0,0,0,.20), transparent 60%);
-    pointer-events:none;
-  }
+.paper{
+  background:url("assets/paper.png");
+  background-size:cover;
+  border-radius:18px;
+  padding:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+}
 
-  .screen{
-    position:fixed; inset:0;
-    padding: calc(12px + var(--safeTop)) 12px calc(12px + var(--safeBottom)) 12px;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-  }
+/* CARD FRAME */
 
-  .panel, .startCard, .modal{
-    background:
-      url("assets/paper.png") center/cover no-repeat,
-      rgba(255,255,255,0.86);
-    border: 1px solid var(--stroke);
-    border-radius: 18px;
-    box-shadow: 0 14px 28px var(--shadow);
-    backdrop-filter: blur(8px);
-  }
+.card{
+  width:140px;
+  height:190px;
 
-  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .col{ display:flex; flex-direction:column; gap:10px; }
-  .sp{ flex:1; }
+  background:url("assets/card-frame.png");
+  background-size:cover;
+  background-position:center;
 
-  /* START TITLE */
-  .titleWrap{
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    text-align:center;
-    padding: 10px 10px 0 10px;
-  }
-  .gameTitle{
-    font-weight: 1000;
-    font-size: 34px;
-    letter-spacing: .2px;
-    color: #fff5dc;
-    text-shadow: 0 12px 22px rgba(0,0,0,.40);
-    margin:0;
-  }
-  .byline{
-    margin-top:6px;
-    color: rgba(255,255,255,.88);
-    font-size: 14px;
-    font-weight: 800;
-  }
+  display:flex;
+  align-items:center;
+  justify-content:center;
 
-  /* Inputs */
-  label{ font-size:14px; opacity:.85; font-weight:800; }
-  input, select{
-    width:100%;
-    padding:12px 12px;
-    border-radius:12px;
-    border:1px solid rgba(0,0,0,.18);
-    background: rgba(255,255,255,.92);
-    outline:none;
-    font-size:16px;
-  }
+  font-weight:bold;
+  text-align:center;
+  padding:10px;
+}
 
-  /* Buttons (boardgame) */
-  .btn{
-    border: 2px solid rgba(0,0,0,.22);
-    border-radius: 16px;
-    padding: 12px 14px;
-    font-weight: 950;
-    font-size: 16px;
-    cursor:pointer;
-    user-select:none;
-    letter-spacing:.2px;
-    box-shadow:
-      0 10px 0 rgba(0,0,0,.18),
-      0 18px 26px rgba(0,0,0,.18);
-    transition: transform .08s ease, filter .15s ease;
-  }
-  .btn:active{
-    transform: translateY(2px) scale(.99);
-    box-shadow:
-      0 7px 0 rgba(0,0,0,.16),
-      0 14px 18px rgba(0,0,0,.16);
-  }
-  .btn:disabled{
-    opacity:.55;
-    cursor:not-allowed;
-    filter: grayscale(.35);
-  }
+/* STATUS BOX */
 
-  .btnGreen{ background: linear-gradient(180deg, #66f09a, #1fb14a); color:#05240e; }
-  .btnRed{ background: linear-gradient(180deg, #ff8d8d, #df3a3a); color:#2b0707; }
-  .btnGold{ background: linear-gradient(180deg, #ffe7a2, #f0b347); color:#2a1b00; }
-  .btnSoft{ background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(245,245,245,.78)); color:#231a12; box-shadow:none; border:1px solid rgba(0,0,0,.16); }
+.statusBox{
+  background:url("assets/paper.png");
+  background-size:cover;
 
-  /* HUD pills grid */
-  .pillGrid{
-    padding:12px;
-    display:grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap:10px;
-  }
-  .pill{
-    padding:10px 12px;
-    border-radius: 16px;
-    background: rgba(255,255,255,.72);
-    border: 1px solid rgba(0,0,0,.14);
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:8px;
-    font-weight: 900;
-    min-height: 48px;
-  }
-  .pill small{ opacity:.75; font-weight:900; }
+  border-radius:18px;
+  padding:10px;
+  margin:6px;
+  box-shadow:0 3px 10px rgba(0,0,0,.35);
+}
 
-  /* Feed */
-  .feed{
-    padding:12px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
-  .feedHead{ display:flex; align-items:center; gap:10px; }
-  .feedBox{
-    background: rgba(255,255,255,.88);
-    border:1px solid rgba(0,0,0,.14);
-    border-radius:14px;
-    padding:10px;
-    max-height: 150px;
-    overflow:auto;
-    font-size: 14px;
-    font-weight: 800;
-  }
-  .feedItem{ padding:6px 0; border-bottom:1px dashed rgba(0,0,0,.14); }
-  .feedItem:last-child{ border-bottom:0; }
+/* ===== BUTTONS ===== */
 
-  /* Night panel always visible */
-  .nightWrap{
-    padding:12px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    flex: 1 1 auto;
-    min-height: 190px;
-  }
-  .nightHeader{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-  }
-  .nightHeader h3{
-    margin:0;
-    font-size: 16px;
-    font-weight: 1000;
-  }
-  .tag{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: rgba(255,224,138,.65);
-    border: 1px solid rgba(0,0,0,.12);
-    font-weight: 1000;
-    font-size: 12px;
-  }
+button{
+  border:none;
+  border-radius:16px;
+  padding:14px;
+  font-weight:bold;
+  font-size:15px;
+  color:white;
 
-  /* Night card uses frame */
-  #nightCard{
-    flex:1;
-    background:
-      url("assets/card-frame.png") center/contain no-repeat;
-    border: 0;
-    border-radius: 16px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    text-align:center;
-    padding: 44px 36px; /* keeps text inside the frame */
-    box-shadow: 0 18px 34px rgba(0,0,0,0.25);
-    position:relative;
-    overflow:hidden;
-    min-height: 220px;
-  }
-  #nightMain{
-    font-size: 26px;
-    font-weight: 1000;
-    text-shadow: 0 2px 0 rgba(0,0,0,0.08);
-  }
-  #nightSub{
-    font-size: 14px;
-    font-weight: 900;
-    opacity:.85;
-    margin-top: 6px;
-  }
+  box-shadow:0 4px 10px rgba(0,0,0,.35);
+  transition:.15s;
+}
 
-  .pulse{ animation: pulse .9s ease-in-out infinite alternate; }
-  @keyframes pulse{
-    from{ filter: brightness(1); transform: translateY(0); }
-    to{ filter: brightness(1.06); transform: translateY(-1px); }
-  }
+button:active{
+  transform:scale(.94);
+}
 
-  /* Controls sticky */
-  .controls{
-    padding: 12px;
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    position: sticky;
-    bottom: 0;
-    background:
-      url("assets/paper.png") center/cover no-repeat,
-      rgba(255,255,255,.80);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(0,0,0,.12);
-    border-radius: 18px;
-  }
-  .controls .btn{ padding: 14px 12px; font-size: 16px; }
+/* GOLD */
 
-  /* Modals */
-  .overlay{
-    position:fixed; inset:0;
-    background: rgba(0,0,0,.35);
-    display:none;
-    align-items:center;
-    justify-content:center;
-    padding: 14px;
-    z-index: 9999;
-  }
-  .modal{
-    width:min(560px, 96vw);
-    max-height: 86svh;
-    overflow:auto;
-    padding: 14px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
-  .modal h2{
-    margin:0;
-    font-size: 18px;
-    font-weight: 1000;
-  }
-  .hint{
-    font-size: 13px;
-    opacity: .80;
-    font-weight: 900;
-    line-height: 1.35;
-  }
-  .modalGrid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:10px;
-  }
-  .modalList{
-    border:1px dashed rgba(0,0,0,.22);
-    border-radius: 14px;
-    padding: 10px;
-    background: rgba(255,255,255,.82);
-  }
-  .listRow{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    padding: 8px 0;
-    border-bottom: 1px dashed rgba(0,0,0,.16);
-    font-size: 14px;
-    font-weight: 950;
-  }
-  .listRow:last-child{ border-bottom:0; }
+.btnGold{
+  background:linear-gradient(#f7d26a,#d4a83b);
+  color:#3a2a0c;
+}
 
-  /* Responsive */
-  @media (max-width: 760px){
-    .pillGrid{ grid-template-columns: 1fr 1fr; }
-    .gameTitle{ font-size: 30px; }
-    #nightCard{ min-height: 200px; padding: 40px 28px; }
-    .feedBox{ max-height: 140px; }
-  }
+/* GREEN */
 
-  .feedBox::-webkit-scrollbar { width: 8px; }
-  .feedBox::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 10px; }
-</style>
+.btnGreen{
+  background:linear-gradient(#5ee07d,#2fa84e);
+}
+
+/* RED */
+
+.btnRed{
+  background:linear-gradient(#ff6b6b,#d43a3a);
+}
+
+/* SOUND */
+
+.btnSound{
+  background:linear-gradient(#e0c48a,#b89654);
+  color:#2b1d0e;
+}
+
+/* LOGO */
+
+#logo{
+  width:90%;
+  max-width:340px;
+  display:block;
+  margin:10px auto;
+}
+
 
 </head>
 
