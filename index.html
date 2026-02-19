@@ -1,1223 +1,1405 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Survival Challenge</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Survival Challenge</title>
 
-<!-- Firebase (Compat) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <!-- Firebase compat (works in plain HTML on GitHub Pages) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
-/* ===== BACKGROUND ===== */
+  <style>
+    :root{
+      --safeTop: env(safe-area-inset-top, 0px);
+      --safeBottom: env(safe-area-inset-bottom, 0px);
+      --ink:#2b1d0e;
+      --shadow: rgba(0,0,0,.28);
+      --stroke: rgba(0,0,0,.18);
+      --paperBg: rgba(255,255,255,.86);
+    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--ink);
+      overflow:hidden;
+      background: url("assets/wood.png") center/cover no-repeat fixed;
+    }
+    @media (max-width: 768px){ body{ background-attachment: scroll; } }
 
-body{
-  margin:0;
-  font-family:Arial, sans-serif;
-  color:#2b1d0e;
+    /* vignette */
+    body::before{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(1200px 700px at 50% 10%, rgba(255,255,255,.10), transparent 62%),
+        radial-gradient(900px 600px at 15% 0%, rgba(255,255,255,.06), transparent 56%),
+        radial-gradient(900px 600px at 90% 20%, rgba(0,0,0,.22), transparent 64%);
+    }
 
-  background:url("assets/wood.png");
-  background-size:cover;
-  background-attachment:fixed;
-}
+    .screen{
+      position:fixed; inset:0;
+      padding: calc(10px + var(--safeTop)) 10px calc(10px + var(--safeBottom)) 10px;
+      display:none;
+      gap:10px;
+    }
+    .screen.active{ display:flex; flex-direction:column; }
 
-/* PAPER OVERLAY */
+    .paper{
+      background:
+        url("assets/paper.png") center/cover no-repeat,
+        var(--paperBg);
+      border: 1px solid var(--stroke);
+      border-radius:18px;
+      box-shadow: 0 14px 28px var(--shadow);
+      backdrop-filter: blur(8px);
+    }
 
-.paper{
-  background:url("assets/paper.png");
-  background-size:cover;
-  border-radius:18px;
-  padding:14px;
-  box-shadow:0 6px 18px rgba(0,0,0,.35);
-}
+    /* Start screen */
+    .startWrap{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      gap:12px;
+      padding:18px;
+    }
+    #logo{
+      width:min(420px, 86vw);
+      height:auto;
+      display:block;
+      filter: drop-shadow(0 16px 22px rgba(0,0,0,.35));
+    }
+    .byline{
+      margin-top:4px;
+      font-weight:900;
+      opacity:.85;
+    }
+    .startCard{
+      width:min(560px, 96vw);
+      padding:14px;
+    }
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    @media (max-width: 520px){
+      .grid2{ grid-template-columns: 1fr; }
+    }
+    label{ font-size:13px; font-weight:900; opacity:.82; }
+    input, select{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,.16);
+      background: rgba(255,255,255,.92);
+      outline:none;
+      font-size:16px;
+    }
 
-/* CARD FRAME */
+    /* Buttons */
+    .btn{
+      border:2px solid rgba(0,0,0,.22);
+      border-radius:16px;
+      padding:12px 14px;
+      font-weight:950;
+      font-size:16px;
+      cursor:pointer;
+      user-select:none;
+      box-shadow:
+        0 10px 0 rgba(0,0,0,.18),
+        0 18px 26px rgba(0,0,0,.18);
+      transition: transform .08s ease, filter .18s ease;
+    }
+    .btn:active{
+      transform: translateY(2px) scale(.99);
+      box-shadow:
+        0 7px 0 rgba(0,0,0,.16),
+        0 14px 18px rgba(0,0,0,.16);
+    }
+    .btn:disabled{ opacity:.55; filter: grayscale(.35); cursor:not-allowed; }
+    .btnGold{ background: linear-gradient(#ffe7a2,#f0b347); color:#2a1b00; }
+    .btnGreen{ background: linear-gradient(#66f09a,#1fb14a); color:#05240e; }
+    .btnRed{ background: linear-gradient(#ff8d8d,#df3a3a); color:#2b0707; }
+    .btnSoft{ background: linear-gradient(rgba(255,255,255,.92),rgba(245,245,245,.78)); color:#231a12; box-shadow:none; border:1px solid rgba(0,0,0,.16); }
 
-.card{
-  width:140px;
-  height:190px;
+    /* Game layout */
+    .hud{
+      padding:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+    }
+    @media (max-width: 760px){
+      .hud{ grid-template-columns: 1fr 1fr; }
+    }
+    .pill{
+      min-height:48px;
+      padding:10px 12px;
+      border-radius:16px;
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(0,0,0,.14);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-weight:950;
+    }
+    .pill small{ opacity:.72; font-weight:900; }
 
-  background:url("assets/card-frame.png");
-  background-size:cover;
-  background-position:center;
+    .mainRow{
+      display:flex;
+      gap:10px;
+      flex:1;
+      min-height:0;
+    }
+    @media (max-width: 880px){
+      .mainRow{ flex-direction:column; }
+    }
 
-  display:flex;
-  align-items:center;
-  justify-content:center;
+    .feed{
+      width:min(520px, 100%);
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:0;
+    }
+    .feedTitle{ font-size:16px; font-weight:1000; }
+    .feedBox{
+      flex:1;
+      min-height:120px;
+      max-height:220px;
+      overflow:auto;
+      padding:10px;
+      border-radius:14px;
+      background: rgba(255,255,255,.88);
+      border:1px solid rgba(0,0,0,.14);
+      font-size:14px;
+      font-weight:850;
+    }
+    .feedItem{ padding:6px 0; border-bottom:1px dashed rgba(0,0,0,.14); }
+    .feedItem:last-child{ border-bottom:0; }
 
-  font-weight:bold;
-  text-align:center;
-  padding:10px;
-}
+    .cardArea{
+      flex:1;
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:0;
+    }
+    .cardHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      background: rgba(255,224,138,.65);
+      border:1px solid rgba(0,0,0,.12);
+      font-weight:1000;
+      font-size:12px;
+    }
 
-/* STATUS BOX */
+    #nightCard{
+      flex:1;
+      min-height:220px;
+      background: url("assets/card-frame.png") center/contain no-repeat;
+      border:0;
+      border-radius:16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:44px 36px;
+      box-shadow: 0 18px 34px rgba(0,0,0,.25);
+      overflow:hidden;
+      position:relative;
+    }
+    @media (max-width: 760px){
+      #nightCard{ min-height:200px; padding:40px 28px; }
+    }
+    #nightMain{ font-size:26px; font-weight:1000; text-shadow:0 2px 0 rgba(0,0,0,.08); }
+    #nightSub{ margin-top:6px; font-size:14px; font-weight:900; opacity:.85; }
 
-.statusBox{
-  background:url("assets/paper.png");
-  background-size:cover;
+    .pulse{ animation:pulse .9s ease-in-out infinite alternate; }
+    @keyframes pulse{
+      from{ filter:brightness(1); transform:translateY(0); }
+      to{ filter:brightness(1.06); transform:translateY(-1px); }
+    }
 
-  border-radius:18px;
-  padding:10px;
-  margin:6px;
-  box-shadow:0 3px 10px rgba(0,0,0,.35);
-}
+    .controls{
+      padding:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      position:sticky;
+      bottom:0;
+      background:
+        url("assets/paper.png") center/cover no-repeat,
+        rgba(255,255,255,.80);
+      border:1px solid rgba(0,0,0,.12);
+      border-radius:18px;
+      backdrop-filter: blur(10px);
+    }
 
-/* ===== BUTTONS ===== */
+    /* Overlay modal */
+    .overlay{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.38);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      z-index:9999;
+    }
+    .overlay.active{ display:flex; }
+    .modal{
+      width:min(620px, 96vw);
+      max-height: 88svh;
+      overflow:auto;
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .modal h2{ margin:0; font-size:18px; font-weight:1000; }
+    .hint{ font-size:13px; opacity:.82; font-weight:900; line-height:1.35; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .row > *{ flex:1; min-width: 120px; }
+    .list{
+      background: rgba(255,255,255,.88);
+      border:1px dashed rgba(0,0,0,.20);
+      border-radius:14px;
+      padding:10px;
+    }
+    .listRow{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:8px 0;
+      border-bottom:1px dashed rgba(0,0,0,.16);
+      font-size:14px;
+      font-weight:950;
+    }
+    .listRow:last-child{ border-bottom:0; }
 
-button{
-  border:none;
-  border-radius:16px;
-  padding:14px;
-  font-weight:bold;
-  font-size:15px;
-  color:white;
-
-  box-shadow:0 4px 10px rgba(0,0,0,.35);
-  transition:.15s;
-}
-
-button:active{
-  transform:scale(.94);
-}
-
-/* GOLD */
-
-.btnGold{
-  background:linear-gradient(#f7d26a,#d4a83b);
-  color:#3a2a0c;
-}
-
-/* GREEN */
-
-.btnGreen{
-  background:linear-gradient(#5ee07d,#2fa84e);
-}
-
-/* RED */
-
-.btnRed{
-  background:linear-gradient(#ff6b6b,#d43a3a);
-}
-
-/* SOUND */
-
-.btnSound{
-  background:linear-gradient(#e0c48a,#b89654);
-  color:#2b1d0e;
-}
-
-/* LOGO */
-
-#logo{
-  width:90%;
-  max-width:340px;
-  display:block;
-  margin:10px auto;
-}
-
-
+    /* tiny toast */
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom: calc(16px + var(--safeBottom));
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.75);
+      color:white;
+      padding:10px 14px;
+      border-radius: 999px;
+      font-weight:900;
+      font-size:13px;
+      display:none;
+      z-index:10000;
+    }
+  </style>
 </head>
 
 <body>
 
-<!-- START -->
-<div id="startScreen" class="screen">
-  <div class="titleWrap">
-  <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
-    <img
-      src="assets/logo.png"
-      alt="Survival Challenge"
-      style="width:min(320px, 78vw); height:auto; display:block; filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));"
-      onerror="this.style.display='none';"
-    />
-    <div class="byline">(by David Toma)</div>
-  </div>
-</div>
+  <!-- START -->
+  <div id="startScreen" class="screen active">
+    <div class="startWrap">
+      <img id="logo" src="assets/logo.png" alt="Survival Challenge" onerror="this.style.display='none'">
+      <div class="byline">(by David Toma)</div>
 
-  <div class="panel startCard">
-    <div class="col">
-      <div class="row">
-        <div class="sp">
-          <label>Room code</label>
-          <input id="roomInput" maxlength="6" placeholder="ABCD12" />
+      <div class="startCard paper">
+        <div class="grid2">
+          <div>
+            <label>Your name</label>
+            <input id="nameInput" maxlength="14" placeholder="David" />
+          </div>
+          <div>
+            <label>Room code (max 6)</label>
+            <input id="roomInput" maxlength="6" placeholder="ABCD12" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button id="joinBtn" class="btn btnGreen">Join / Create</button>
+          <button id="howBtn" class="btn btnGold">How it works</button>
+        </div>
+
+        <div class="hint" style="margin-top:8px;">
+          Max 4 players. First player becomes <b>Challenger</b>.
+        </div>
+
+        <div class="hint" style="margin-top:8px;">
+          <b>Opis (HR):</b> Preživite 7 noći kao Survivori. Challenger zadaje izazove i upravlja resursima. Previše failova ili izgubljena srca = poraz.
+          <br><br>
+          <b>Description (EN):</b> Survive 7 nights as Survivors. The Challenger sets challenges and controls resources. Too many fails or hearts lost = defeat.
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="row">
-        <div class="sp">
-          <label>Your name</label>
-          <input id="nameInput" maxlength="14" placeholder="David" />
+  <!-- GAME -->
+  <div id="gameScreen" class="screen">
+    <div id="hudPanel" class="paper hud">
+      <div class="pill"><small>Phase</small><span id="hudPhase">lobby</span></div>
+      <div class="pill"><small>Role</small><span id="hudRole">—</span></div>
+      <div class="pill"><small>Night</small><span id="hudNight">0/7</span></div>
+
+      <div class="pill"><small>Fails</small><span id="hudFails">0/3</span></div>
+      <div class="pill"><small>Event</small><span id="hudEvent">—</span></div>
+      <div class="pill"><small>Timer</small><span id="hudTimer">—</span></div>
+
+      <div class="pill"><small>Supply</small><span id="hudSupply">—</span></div>
+      <div class="pill"><small>Power</small><span id="hudPower">—</span></div>
+      <div class="pill"><small>Hearts</small><span id="hudHearts">—</span></div>
+
+      <div class="pill"><small>Hunger</small><span id="hudHunger">—</span></div>
+      <div class="pill"><small>Players</small><span id="hudPlayers">0/4</span></div>
+      <div class="pill"><small>Sound</small>
+        <button id="soundBtn" class="btn btnSoft" style="padding:8px 10px; font-size:13px;">🔇</button>
+      </div>
+    </div>
+
+    <div class="mainRow">
+      <div class="paper feed">
+        <div class="feedTitle">Room Feed</div>
+        <div class="feedBox" id="feedBox"></div>
+      </div>
+
+      <div class="paper cardArea">
+        <div class="cardHeader">
+          <div style="font-weight:1000;">Night Card</div>
+          <div class="tag" id="roomCodeTag">ROOM: —</div>
         </div>
-      </div>
 
-      <button id="joinBtn" class="btn btnGreen">Join / Create</button>
-      <div class="hint" style="opacity:.8;font-weight:800;font-size:13px;">
-        First player in room becomes <b>Challenger</b>. Max 4 players.
-      </div>
-    </div>
-  </div>
-
-  <div class="panel startCard">
-    <div style="font-weight:900;">Game description (HR)</div>
-    <div style="opacity:.85;font-weight:700;font-size:14px;line-height:1.35;">
-      Igra za 3–4 igrača. Preživite <b>7 noći</b> kao Survivori. Challenger zadaje izazove i upravlja resursima.
-      Ako Survivori naprave previše failova ili izgube srca — Challenger pobjeđuje.
-    </div>
-    <div style="height:10px;"></div>
-    <div style="font-weight:900;">Game description (EN)</div>
-    <div style="opacity:.85;font-weight:700;font-size:14px;line-height:1.35;">
-      A 3–4 player survival party game. Survivors must endure <b>7 nights</b>. The Challenger sets challenges and controls resources.
-      Too many fails or hearts lost means the Challenger wins.
-    </div>
-  </div>
-</div>
-
-<!-- GAME -->
-<div id="gameScreen" class="screen" style="display:none;">
-  <!-- Top HUD -->
-  <div id="topHUD" class="panel pillGrid">
-    <div class="pill"><small>Phase</small><span id="phaseText">lobby</span></div>
-    <div class="pill"><small>Role</small><span id="roleText">—</span></div>
-    <div class="pill"><small>Night</small><span id="nightText">0/7</span></div>
-
-    <div class="pill"><small>Fails</small><span id="failsText">0/3</span></div>
-    <div class="pill"><small>Timer</small><span id="timerText">—</span></div>
-    <div class="pill"><small>Power</small><span id="powerText">3</span></div>
-
-    <div class="pill"><small>Mission</small><span id="missionText">—</span></div>
-    <div class="pill"><small>Event</small><span id="eventText">—</span></div>
-    <div class="pill"><small>Supply</small><span id="supplyText">3</span></div>
-
-    <div class="pill"><small>Shield</small><span id="shieldText">—</span></div>
-    <div class="pill"><small>Hearts</small><span id="myHeartsText">❤️❤️❤️</span></div>
-    <div class="pill"><small>Players</small><span id="playersText">1/4</span></div>
-  </div>
-
-  <!-- Feed + Audio -->
-  <div class="panel feed">
-    <div class="feedHead">
-      <div style="font-weight:900;">Room Feed</div>
-      <div class="sp"></div>
-
-      <button id="soundBtn" class="btn btnGold" style="padding:10px 14px; font-size:14px;">Sound</button>
-      <input id="vol" type="range" min="0" max="1" step="0.01" value="0.55" style="width:140px;" />
-    </div>
-    <div id="feedBox" class="feedBox"></div>
-  </div>
-
-  <!-- Night card -->
-  <div id="nightPanel" class="panel nightWrap">
-    <div class="nightHeader">
-      <h3>Night Card (3 sec)</h3>
-      <div class="tag" id="nightBadge">Waiting…</div>
-    </div>
-    <div id="nightCard" class="nightCard">
-      <div>
-        <div id="nightMain">—</div>
-        <div class="sub" id="nightSub">Challenger picks a challenge</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Controls -->
-  <div id="controls" class="panel controls">
-    <button id="inventoryBtn" class="btn btnSoft">Inventory</button>
-    <button id="craftBtn" class="btn btnSoft">Craft</button>
-
-    <button id="tradeBtn" class="btn btnSoft">Trade</button>
-    <button id="roleBtn" class="btn btnGold">Role Action</button>
-
-    <button id="pleaseBtn" class="btn btnGold">Please</button>
-    <button id="readyBtn" class="btn btnGreen">Ready</button>
-
-    <button id="pickChallengeBtn" class="btn btnGreen">Pick Challenge</button>
-    <button id="startNightBtn" class="btn btnRed">Start Night</button>
-  </div>
-</div>
-
-<!-- INVENTORY MODAL -->
-<div id="invOverlay" class="overlay">
-  <div class="modal">
-    <h2>Inventory</h2>
-    <div class="hint">Tap an item to use it (demo). Inventory syncs to Firebase.</div>
-
-    <div class="row">
-      <select id="addItemSelect" class="sp"></select>
-      <button id="addItemBtn" class="btn btnGold">Add</button>
-    </div>
-
-    <div id="invList" class="modalList"></div>
-
-    <div class="row">
-      <div class="sp"></div>
-      <button class="btn btnSoft" onclick="closeOverlay('invOverlay')">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- TRADE MODAL (dropdowns, no typing) -->
-<div id="tradeOverlay" class="overlay">
-  <div class="modal">
-    <h2>Trade</h2>
-    <div class="hint">Choose what you give, who you trade with, and what you want.</div>
-
-    <div class="modalGrid">
-      <div>
-        <label>You give</label>
-        <select id="tradeGive"></select>
-      </div>
-      <div>
-        <label>To player</label>
-        <select id="tradeTo"></select>
-      </div>
-      <div>
-        <label>You want</label>
-        <select id="tradeWant"></select>
-      </div>
-      <div style="display:flex;align-items:flex-end;">
-        <button id="sendTradeBtn" class="btn btnGold" style="width:100%;">Send Trade</button>
-      </div>
-    </div>
-
-    <div style="font-weight:900;">Incoming trades</div>
-    <div id="tradeInbox" class="modalList"></div>
-
-    <div class="row">
-      <div class="sp"></div>
-      <button class="btn btnSoft" onclick="closeOverlay('tradeOverlay')">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- PLEASE MODAL -->
-<div id="pleaseOverlay" class="overlay">
-  <div class="modal">
-    <h2>Please</h2>
-    <div class="hint">
-      Survivors can request help. Challenger sets the cost (Supply 1–2) and approves/denies.
-    </div>
-
-    <!-- Challenger controls -->
-    <div id="pleaseChControls" class="panel" style="padding:10px; display:none;">
-      <div class="row">
-        <div class="sp">
-          <div style="font-weight:900;">Challenger cost</div>
-          <div class="hint" style="margin-top:2px;">Cost applies to all “Please” requests.</div>
+        <div id="nightCard">
+          <div>
+            <div id="nightMain">Waiting…</div>
+            <div id="nightSub">Challenger starts the night</div>
+          </div>
         </div>
-        <select id="pleaseCostSelect" style="width:120px;">
-          <option value="1">1 Supply</option>
-          <option value="2">2 Supply</option>
-        </select>
-        <button id="saveCostBtn" class="btn btnGold" style="padding:10px 14px; font-size:14px;">Save</button>
-      </div>
 
-      <div style="height:8px;"></div>
-      <div style="font-weight:900;">Requests</div>
-      <div id="pleaseQueue" class="modalList"></div>
-    </div>
+        <div class="controls">
+          <button id="inventoryBtn" class="btn btnGold">Inventory</button>
+          <button id="tradeBtn" class="btn btnGold">Trade</button>
+          <button id="pleaseBtn" class="btn btnGold">Please</button>
+          <button id="readyBtn" class="btn btnGreen">Ready</button>
+          <button id="pickChallengeBtn" class="btn btnGreen">Pick Challenge</button>
+          <button id="startNightBtn" class="btn btnRed">Start Night</button>
+        </div>
 
-    <!-- Survivor actions -->
-    <div id="pleaseSvControls" class="panel" style="padding:10px; display:none;">
-      <div class="hint">Pick one option:</div>
-      <div class="modalGrid">
-        <button id="pleaseItemBtn" class="btn btnGold">Request Item</button>
-        <button id="pleaseHealBtn" class="btn btnGreen">Request Heal</button>
-        <button id="pleaseSkipBtn" class="btn btnSoft">Skip Fail</button>
-      </div>
-      <div class="hint" style="margin-top:8px;">
-        Cost is set by the Challenger (1–2 Supply).
+        <div class="hint" id="hintLine">Tip: Open Inventory and add / use items.</div>
       </div>
     </div>
-
-    <div class="row">
-      <div class="sp"></div>
-      <button class="btn btnSoft" onclick="closeOverlay('pleaseOverlay')">Close</button>
-    </div>
   </div>
-</div>
 
-<!-- CHALLENGE PICK MODAL -->
-<div id="challengeOverlay" class="overlay">
-  <div class="modal">
-    <h2>Pick Challenge</h2>
-    <div class="hint">Challenger selects a challenge card for the night.</div>
+  <!-- AUDIO -->
+  <audio id="bgMusic" loop>
+    <source src="assets/survival.mp3" type="audio/mpeg">
+  </audio>
 
-    <div id="challengeList" class="modalList"></div>
-
-    <div class="row">
-      <div class="sp"></div>
-      <button class="btn btnSoft" onclick="closeOverlay('challengeOverlay')">Close</button>
-    </div>
+  <!-- MODALS -->
+  <div id="modalOverlay" class="overlay">
+    <div id="modalBox" class="paper modal"></div>
   </div>
-</div>
 
-<!-- WIN/LOSE OVERLAY (video optional) -->
-<div id="endOverlay" class="overlay">
-  <div class="modal" style="align-items:center;text-align:center;">
-    <h2 id="endTitle">Game Over</h2>
-    <div id="endText" class="hint" style="font-size:14px;"></div>
-
-    <video id="endVideo" controls playsinline style="display:none; width:100%; border-radius:14px; border:1px solid rgba(0,0,0,.18);"></video>
-
-    <div class="row" style="width:100%;">
-      <button class="btn btnSoft sp" onclick="location.reload()">Reload</button>
-      <button class="btn btnGold sp" onclick="closeOverlay('endOverlay')">Close</button>
-    </div>
-  </div>
-</div>
-
-<audio id="bgm" preload="auto" loop></audio>
+  <div id="toast" class="toast"></div>
 
 <script>
-/* ============================
-   Firebase config (YOUR PROJECT)
-   ============================ */
-const firebaseConfig = {
-  apiKey: "AIzaSyD6T_zbq3-fhN10aCF9zZtWJxV0eMg8fZQ",
-  authDomain: "survivalchallengedt.firebaseapp.com",
-  databaseURL: "https://survivalchallengedt-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "survivalchallengedt",
-  storageBucket: "survivalchallengedt.firebasestorage.app",
-  messagingSenderId: "953781088335",
-  appId: "1:953781088335:web:fc26e2fb17717004eeba3a"
-};
+  /* =========================
+     1) FIREBASE CONFIG (YOUR PROJECT)
+     ========================= */
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6T_zbq3-fhN10aCF9zZtWJxV0eMg8fZQ",
+    authDomain: "survivalchallengedt.firebaseapp.com",
+    databaseURL: "https://survivalchallengedt-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "survivalchallengedt",
+    storageBucket: "survivalchallengedt.firebasestorage.app",
+    messagingSenderId: "953781088335",
+    appId: "1:953781088335:web:fc26e2fb17717004eeba3a"
+  };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-/* ============================
-   Helpers
-   ============================ */
-const $ = (id)=>document.getElementById(id);
-function openOverlay(id){ $(id).style.display="flex"; }
-function closeOverlay(id){ $(id).style.display="none"; }
+  /* =========================
+     2) HELPERS
+     ========================= */
+  const $ = (id)=>document.getElementById(id);
+  const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+  const now = ()=>Date.now();
 
-function now(){ return Date.now(); }
-function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-function safeRoom(code){ return (code||"").replace(/[^A-Z0-9]/g,"").slice(0,6); }
-
-function pushFeed(text){
-  if(!currentRoom) return;
-  const ref = db.ref(`rooms/${currentRoom}/feed`).push();
-  ref.set({ t: text, ts: now() });
-}
-
-function heartsToText(h){ return "❤️".repeat(clamp(h||0,0,10)) || "—"; }
-
-/* ============================
-   Game data / items
-   ============================ */
-const ITEM_DEFS = [
-  { id:"rope", name:"Rope", icon:"🪢" },
-  { id:"torch", name:"Torch", icon:"🔥" },
-  { id:"berries", name:"Berries", icon:"🍓" },
-  { id:"trap", name:"Trap", icon:"🪤" },
-  { id:"water", name:"Water", icon:"💧" },
-  { id:"bandage", name:"Bandage", icon:"🩹" },
-  { id:"wood", name:"Wood", icon:"🪵" },
-  { id:"stone", name:"Stone", icon:"🪨" }
-];
-
-const START_INV = ["rope","berries","torch"]; // survivors start
-const START_INV_CH = ["wood","stone"];        // challenger start (optional)
-
-const CHALLENGES = [
-  { id:"bear", title:"Bear", text:"A bear is nearby. Choose: hide or distract.", diff:2 },
-  { id:"storm", title:"Storm", text:"A storm hits. Secure shelter fast.", diff:1 },
-  { id:"snake", title:"Snake", text:"A snake bites. Needs help or cure.", diff:2 },
-  { id:"cold", title:"Cold Night", text:"Temperature drops. Spend resources or suffer.", diff:1 },
-  { id:"lost", title:"Lost Path", text:"Find the route back before dark.", diff:2 }
-];
-
-const MISSIONS = ["Find Food","Build Shelter","Make Fire","Collect Water","Craft Tools"];
-const EVENTS = ["Quiet", "Windy", "Fog", "Lucky Find", "Bad Omen"];
-
-/* ============================
-   Multiplayer state
-   ============================ */
-let myId = localStorage.getItem("sc_id");
-if(!myId){
-  myId = Math.random().toString(36).slice(2,10);
-  localStorage.setItem("sc_id", myId);
-}
-
-let currentRoom = null;
-let myName = null;
-let isChallenger = false;
-let roomUnsub = null;
-let feedUnsub = null;
-
-let localRoom = null;
-
-function showGame(){
-  $("startScreen").style.display="none";
-  $("gameScreen").style.display="flex";
-}
-
-function setNightCard(main, sub, pulse=false){
-  $("nightMain").textContent = main || "—";
-  $("nightSub").textContent = sub || "";
-  $("nightCard").classList.toggle("pulse", !!pulse);
-}
-
-function setBadge(text){
-  $("nightBadge").textContent = text || "—";
-}
-
-/* ============================
-   Audio
-   ============================ */
-const bgm = $("bgm");
-bgm.src = "assets/survival.mp3"; // place this file in /assets/survival.mp3
-bgm.volume = parseFloat($("vol").value);
-
-$("vol").addEventListener("input", ()=>{
-  bgm.volume = parseFloat($("vol").value);
-});
-
-$("soundBtn").onclick = async ()=>{
-  if(!isChallenger){
-    alert("Only Challenger can control sound.");
-    return;
+  function toast(msg){
+    const t = $("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    clearTimeout(toast._tm);
+    toast._tm = setTimeout(()=>t.style.display="none", 1600);
   }
-  try{
-    if(bgm.paused){
-      await bgm.play();
-      $("soundBtn").textContent = "Sound On";
-    }else{
-      bgm.pause();
-      $("soundBtn").textContent = "Sound";
+
+  function openModal(html){
+    $("modalBox").innerHTML = html;
+    $("modalOverlay").classList.add("active");
+  }
+  function closeModal(){
+    $("modalOverlay").classList.remove("active");
+    $("modalBox").innerHTML = "";
+  }
+  $("modalOverlay").addEventListener("click", (e)=>{
+    if(e.target.id==="modalOverlay") closeModal();
+  });
+
+  function pushFeed(text){
+    if(!currentRoom) return;
+    const ref = db.ref(`rooms/${currentRoom}/feed`).push();
+    ref.set({ t: now(), text });
+  }
+
+  function safeStr(s){ return (s||"").toString().trim(); }
+  function roomCodeNormalize(s){
+    return safeStr(s).toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);
+  }
+
+  /* =========================
+     3) GAME CONSTANTS
+     ========================= */
+  const MAX_PLAYERS = 4;
+  const MAX_NIGHTS = 7;
+  const MAX_FAILS = 3;
+
+  const ITEM_CATALOG = [
+    { key:"rope",   name:"Rope",   icon:"🪢" },
+    { key:"torch",  name:"Torch",  icon:"🔥" },
+    { key:"berries",name:"Berries",icon:"🫐" },
+    { key:"trap",   name:"Trap",   icon:"🪤" },
+    { key:"water",  name:"Water",  icon:"💧" },
+    { key:"medkit", name:"Medkit", icon:"🩹" },
+    { key:"wood",   name:"Wood",   icon:"🪵" }
+  ];
+  const START_ITEMS = { rope:1, torch:1, berries:2 };
+
+  const EVENT_LIST = [
+    { title:"Lucky Find", effect:"+1 supply", supplyDelta:+1 },
+    { title:"Cold Wind", effect:"-10 hunger all", hungerDelta:-10 },
+    { title:"Quiet Night", effect:"No effect", hungerDelta:0 },
+    { title:"Rain", effect:"Torch less effective", tag:"rain" },
+    { title:"Wolves Nearby", effect:"Challenge +1 difficulty", diffDelta:+1 }
+  ];
+
+  const CHALLENGES = [
+    { title:"Make Fire", diff:3, hint:"Play Torch or team up." },
+    { title:"Build Shelter", diff:4, hint:"Wood / Rope helps." },
+    { title:"Find Food", diff:3, hint:"Berries / Trap helps." },
+    { title:"Cross River", diff:4, hint:"Rope helps." },
+    { title:"Treat Wounds", diff:3, hint:"Medkit helps." }
+  ];
+
+  function itemByKey(k){ return ITEM_CATALOG.find(x=>x.key===k); }
+  function fmtInv(inv){
+    const parts = [];
+    for(const it of ITEM_CATALOG){
+      const q = inv?.[it.key]||0;
+      if(q>0) parts.push(`${it.icon} ${it.name} x${q}`);
     }
-  }catch(e){
-    alert("Audio blocked by browser. Tap any button first, then try again.");
+    return parts.length? parts.join(", ") : "Empty";
   }
-};
 
-/* ============================
-   UI actions
-   ============================ */
-$("inventoryBtn").onclick = ()=> openInventory();
-$("craftBtn").onclick = ()=> alert("Craft: demo placeholder (next upgrade).");
-$("roleBtn").onclick = ()=> roleAction();
-$("tradeBtn").onclick = ()=> openTrade();
-$("pleaseBtn").onclick = ()=> openPlease();
-$("pickChallengeBtn").onclick = ()=> openChallengePick();
-$("readyBtn").onclick = ()=> toggleReady();
-$("startNightBtn").onclick = ()=> startNight();
+  /* =========================
+     4) PLAYER + ROOM STATE
+     ========================= */
+  let myId = localStorage.getItem("sc_myId");
+  if(!myId){
+    myId = Math.random().toString(36).slice(2,10);
+    localStorage.setItem("sc_myId", myId);
+  }
 
-/* ============================
-   Join/Create
-   ============================ */
-$("joinBtn").onclick = async ()=>{
-  const code = safeRoom($("roomInput").value.trim().toUpperCase());
-  if(!code) return alert("Enter room code e.g. ABCD12");
-  myName = ($("nameInput").value.trim() || ("Player-"+myId.slice(0,4))).slice(0,14);
+  let currentRoom = null;
+  let isChallenger = false;
+  let roomUnsub = null;
+  let lastRoomData = null;
 
-  await joinRoom(code, myName);
-};
+  const audio = $("bgMusic");
+  let localSoundEnabled = false;
 
-async function joinRoom(code, name){
-  currentRoom = code;
-  const roomRef = db.ref(`rooms/${currentRoom}`);
-  const snap = await roomRef.get();
+  function showScreen(which){
+    $("startScreen").classList.remove("active");
+    $("gameScreen").classList.remove("active");
+    $(which).classList.add("active");
+  }
 
-  if(!snap.exists()){
-    await roomRef.set({
-      createdAt: now(),
-      maxPlayers: 4,
-      phase: "lobby",
-      night: 0,
-      nightsMax: 7,
-      failsMax: 3,
-      supply: 3,
-      pleaseCost: 1,
-      challengerId: myId,
-      currentChallenge: null,
-      currentChallengeText: null,
-      mission: MISSIONS[Math.floor(Math.random()*MISSIONS.length)],
-      event: EVENTS[Math.floor(Math.random()*EVENTS.length)],
-      timer: null,
-      ended: null,
-      players: {}
+  function setHint(text){
+    $("hintLine").textContent = text || "";
+  }
+
+  /* =========================
+     5) ROOM INIT / JOIN
+     ========================= */
+  async function joinOrCreate(){
+    const name = safeStr($("nameInput").value) || ("Player-" + myId.slice(0,4));
+    const code = roomCodeNormalize($("roomInput").value);
+    if(!code) return toast("Enter room code.");
+
+    currentRoom = code;
+    $("roomCodeTag").textContent = "ROOM: " + code;
+
+    const roomRef = db.ref(`rooms/${code}`);
+    const snap = await roomRef.get();
+
+    if(!snap.exists()){
+      await roomRef.set({
+        createdAt: now(),
+        phase: "lobby",
+        night: 0,
+        fails: 0,
+        challengerId: myId,
+        supply: 4,
+        power: 3,
+        soundOn: false,
+        event: null,
+        currentChallenge: null,
+        timerEndsAt: null,
+        actions: {},
+        pleaseRequests: {},
+        tradeRequests: {},
+        players: {}
+      });
+    }
+
+    // load latest
+    const room = (await roomRef.get()).val();
+
+    // max players check (ignore if rejoin)
+    const players = room.players || {};
+    const count = Object.keys(players).length;
+    if(!players[myId] && count >= MAX_PLAYERS){
+      currentRoom = null;
+      return alert("Room is full (max 4).");
+    }
+
+    isChallenger = (room.challengerId === myId);
+
+    // set my player record
+    const playerRef = db.ref(`rooms/${code}/players/${myId}`);
+    const existing = (await playerRef.get()).val();
+
+    const basePlayer = existing || {
+      id: myId,
+      name,
+      role: isChallenger ? "Challenger" : "Survivor",
+      hearts: isChallenger ? 3 : 3,
+      hunger: isChallenger ? null : 70,
+      ready: false,
+      inventory: isChallenger ? {} : structuredClone(START_ITEMS)
+    };
+
+    // update name/role if needed
+    basePlayer.name = name;
+    basePlayer.role = isChallenger ? "Challenger" : "Survivor";
+    await playerRef.set(basePlayer);
+
+    // announce join
+    pushFeed(`${name} joined as ${basePlayer.role}.`);
+
+    // show game + listen
+    showScreen("gameScreen");
+    listenRoom();
+    updateRoleButtons();
+  }
+
+  $("joinBtn").onclick = joinOrCreate;
+
+  $("howBtn").onclick = ()=>{
+    openModal(`
+      <h2>How to play</h2>
+      <div class="hint">
+        <b>Goal:</b> Survivors must survive <b>${MAX_NIGHTS} nights</b>.<br>
+        <b>Lose:</b> <b>${MAX_FAILS} fails</b> or all Survivors lose hearts.<br><br>
+        <b>Challenger</b> starts nights, picks challenges, manages Supply/Power and answers <b>Please</b> requests.<br>
+        <b>Survivors</b> use Inventory, Trade and Please to help pass challenges.
+      </div>
+      <button class="btn btnGold" onclick="(${closeModal.toString()})()">Close</button>
+    `);
+  };
+
+  /* =========================
+     6) LISTEN + RENDER
+     ========================= */
+  function listenRoom(){
+    if(roomUnsub) roomUnsub.off();
+    const ref = db.ref(`rooms/${currentRoom}`);
+    roomUnsub = ref;
+
+    ref.on("value", snap=>{
+      const data = snap.val();
+      if(!data) return;
+      lastRoomData = data;
+      render(data);
     });
   }
 
-  const room = (await roomRef.get()).val();
-  isChallenger = room.challengerId === myId;
+  function render(data){
+    // hud
+    $("hudPhase").textContent = data.phase || "—";
+    $("hudNight").textContent = `${data.night||0}/${MAX_NIGHTS}`;
+    $("hudFails").textContent = `${data.fails||0}/${MAX_FAILS}`;
+    $("hudEvent").textContent = data.event?.title || "—";
 
-  const playersCount = room.players ? Object.keys(room.players).length : 0;
-  if(playersCount >= 4 && !room.players?.[myId]){
-    alert("Room is full (max 4).");
-    currentRoom = null;
-    return;
+    $("hudSupply").textContent = (data.supply ?? "—");
+    $("hudPower").textContent = (data.power ?? "—");
+
+    const players = data.players || {};
+    const pcount = Object.keys(players).length;
+    $("hudPlayers").textContent = `${pcount}/${MAX_PLAYERS}`;
+
+    const me = players[myId];
+    if(me){
+      $("hudRole").textContent = me.role || "—";
+      $("hudHearts").textContent = "❤️".repeat(me.hearts||0) || "—";
+      $("hudHunger").textContent = (me.role==="Survivor") ? `${me.hunger ?? 70}/70` : "—";
+    }
+
+    // timer
+    if(data.timerEndsAt){
+      const ms = data.timerEndsAt - now();
+      $("hudTimer").textContent = ms>0 ? Math.ceil(ms/1000) + "s" : "0s";
+    } else {
+      $("hudTimer").textContent = "—";
+    }
+
+    // night card
+    if(data.phase==="lobby"){
+      $("nightMain").textContent = "Lobby";
+      $("nightSub").textContent = "Everyone press Ready.";
+      $("nightCard").classList.remove("pulse");
+    }
+
+    if(data.phase==="night"){
+      const c = data.currentChallenge;
+      $("nightMain").textContent = c?.title || "Challenge…";
+      let extra = c ? `Difficulty: ${c.diff}` : "";
+      if(data.event?.diffDelta) extra += ` (+${data.event.diffDelta} event)`;
+      $("nightSub").textContent = extra || "Survivors choose actions.";
+      $("nightCard").classList.add("pulse");
+    }
+
+    if(data.phase==="resolve"){
+      $("nightMain").textContent = "Resolving…";
+      $("nightSub").textContent = "Calculating outcome.";
+      $("nightCard").classList.remove("pulse");
+    }
+
+    if(data.phase==="end"){
+      $("nightMain").textContent = data.endText || "Game ended";
+      $("nightSub").textContent = "Refresh to play again.";
+      $("nightCard").classList.remove("pulse");
+    }
+
+    // feed
+    renderFeed(data.feed);
+
+    // sound sync: only challenger can toggle, but everyone follows room soundOn
+    if(data.soundOn && !audio._playing){
+      tryPlayAudio();
+    }
+    if(!data.soundOn && audio._playing){
+      audio.pause();
+      audio._playing = false;
+    }
+    $("soundBtn").textContent = data.soundOn ? "🔊" : "🔇";
+
+    updateRoleButtons();
+    maybeAutoResolve(data);
   }
 
-  const base = {
-    id: myId,
-    name,
-    role: isChallenger ? "Challenger" : "Survivor",
-    hearts: 3,
-    hunger: isChallenger ? null : 70,
-    ready: false,
-    fails: 0,
-    power: isChallenger ? 3 : 0,
-    inventory: {},
-    joinedAt: now()
+  function renderFeed(feedObj){
+    const box = $("feedBox");
+    const entries = feedObj ? Object.values(feedObj) : [];
+    entries.sort((a,b)=>(a.t||0)-(b.t||0));
+    const last = entries.slice(-40);
+    box.innerHTML = last.map(x=>`<div class="feedItem">${escapeHtml(x.text||"")}</div>`).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function escapeHtml(s){
+    return (s||"").toString()
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function updateRoleButtons(){
+    const data = lastRoomData;
+    if(!data) return;
+    const me = data.players?.[myId];
+    const role = me?.role;
+
+    $("pickChallengeBtn").disabled = !(role==="Challenger");
+    $("startNightBtn").disabled = !(role==="Challenger");
+
+    $("pleaseBtn").disabled = !(role==="Survivor") || data.phase!=="night";
+    $("tradeBtn").disabled = !me;
+    $("inventoryBtn").disabled = !me;
+
+    // ready allowed in lobby
+    $("readyBtn").disabled = (data.phase!=="lobby");
+
+    // challenger should not have hunger / please
+    if(role==="Challenger"){
+      setHint("You are Challenger. Pick a challenge, manage Supply/Power, approve Please requests.");
+    }else if(role==="Survivor"){
+      setHint(data.phase==="night" ? "Use Please: Item / Heal / Skip Fail. Trade items with others." : "Get ready. Survive 7 nights.");
+    }
+  }
+
+  /* =========================
+     7) SOUND (only Challenger toggles)
+     ========================= */
+  async function tryPlayAudio(){
+    try{
+      await audio.play();
+      audio._playing = true;
+      localSoundEnabled = true;
+    }catch(e){
+      // mobile needs user gesture; show hint
+      audio._playing = false;
+      localSoundEnabled = false;
+    }
+  }
+
+  $("soundBtn").onclick = async ()=>{
+    const data = lastRoomData;
+    if(!data) return;
+    const me = data.players?.[myId];
+    if(!me) return;
+
+    if(me.role!=="Challenger"){
+      toast("Only Challenger controls sound.");
+      // But user gesture can still allow playback when room soundOn is true:
+      if(data.soundOn && !audio._playing) tryPlayAudio();
+      return;
+    }
+
+    const newVal = !data.soundOn;
+    await db.ref(`rooms/${currentRoom}/soundOn`).set(newVal);
+    pushFeed(newVal ? "Sound ON." : "Sound OFF.");
+    if(newVal) tryPlayAudio();
   };
 
-  const startInv = isChallenger ? START_INV_CH : START_INV;
-  const invObj = {};
-  startInv.forEach(k => invObj[k] = (invObj[k] || 0) + 1);
-  base.inventory = invObj;
-
-  await db.ref(`rooms/${currentRoom}/players/${myId}`).set(base);
-
-  // Remove player on disconnect
-  db.ref(`rooms/${currentRoom}/players/${myId}`).onDisconnect().remove();
-
-  pushFeed(`${name} joined as ${base.role}.`);
-
-  showGame();
-  startListeners();
-}
-
-/* ============================
-   Listeners
-   ============================ */
-function startListeners(){
-  if(roomUnsub) roomUnsub.off();
-  if(feedUnsub) feedUnsub.off();
-
-  const roomRef = db.ref(`rooms/${currentRoom}`);
-  roomUnsub = roomRef;
-
-  roomRef.on("value", (snap)=>{
-    const data = snap.val();
+  /* =========================
+     8) READY / LOBBY START CONDITIONS
+     ========================= */
+  $("readyBtn").onclick = async ()=>{
+    const data = lastRoomData;
     if(!data) return;
-    localRoom = data;
-    renderRoom(data);
-    checkWinLose(data);
-  });
+    if(data.phase!=="lobby") return;
 
-  const feedRef = db.ref(`rooms/${currentRoom}/feed`).limitToLast(30);
-  feedUnsub = feedRef;
+    const me = data.players?.[myId];
+    if(!me) return;
 
-  feedRef.on("value", (snap)=>{
-    const obj = snap.val() || {};
-    const items = Object.values(obj).sort((a,b)=>a.ts-b.ts);
-    const box = $("feedBox");
-    box.innerHTML = "";
-    for(const it of items){
-      const div = document.createElement("div");
-      div.className = "feedItem";
-      div.textContent = it.t;
-      box.appendChild(div);
-    }
-    box.scrollTop = box.scrollHeight;
-  });
-}
+    const newReady = !me.ready;
+    await db.ref(`rooms/${currentRoom}/players/${myId}/ready`).set(newReady);
+    pushFeed(`${me.name} is ${newReady ? "READY" : "NOT ready"}.`);
+  };
 
-function renderRoom(r){
-  const me = r.players?.[myId];
-  const count = r.players ? Object.keys(r.players).length : 1;
-
-  $("phaseText").textContent = r.phase || "—";
-  $("roleText").textContent = me?.role || (isChallenger ? "Challenger" : "Survivor");
-  $("nightText").textContent = `${r.night||0}/${r.nightsMax||7}`;
-  $("failsText").textContent = `${me?.fails||0}/${r.failsMax||3}`;
-  $("timerText").textContent = r.timer ? `${r.timer}s` : "—";
-  $("missionText").textContent = r.mission || "—";
-  $("eventText").textContent = r.event || "—";
-  $("powerText").textContent = (me?.power ?? (isChallenger?3:0));
-  $("supplyText").textContent = (r.supply ?? 0);
-  $("shieldText").textContent = me?.shield ? "ON" : "—";
-  $("myHeartsText").textContent = heartsToText(me?.hearts||0);
-  $("playersText").textContent = `${count}/4`;
-
-  // Enable/disable buttons based on role
-  $("pickChallengeBtn").disabled = !isChallenger;
-  $("startNightBtn").disabled = !isChallenger;
-  $("soundBtn").disabled = !isChallenger;
-
-  // Night card content
-  if(r.currentChallengeText){
-    setBadge("Challenge ready");
-    setNightCard(r.currentChallengeText, "Starts when Challenger presses Start Night", true);
-  }else{
-    setBadge(r.phase === "lobby" ? "Lobby" : "Waiting…");
-    setNightCard("—", isChallenger ? "Pick a challenge" : "Wait for Challenger", false);
+  function allSurvivorsReady(data){
+    const players = data.players||{};
+    const vals = Object.values(players);
+    const survivors = vals.filter(p=>p.role==="Survivor");
+    if(survivors.length===0) return false;
+    return survivors.every(p=>p.ready);
   }
 
-  // Update inventory modal if open
-  if($("invOverlay").style.display === "flex"){
-    renderInventory(me?.inventory || {});
-  }
+  /* =========================
+     9) INVENTORY MODAL
+     ========================= */
+  $("inventoryBtn").onclick = ()=>{
+    const data = lastRoomData;
+    const me = data?.players?.[myId];
+    if(!me) return;
 
-  // Update trade modal if open
-  if($("tradeOverlay").style.display === "flex"){
-    renderTradeUI();
-  }
+    const inv = me.inventory || {};
+    const rows = ITEM_CATALOG.map(it=>{
+      const q = inv[it.key]||0;
+      return `<div class="listRow"><span>${it.icon} ${it.name}</span><span>x${q}</span></div>`;
+    }).join("");
 
-  // Update please modal if open
-  if($("pleaseOverlay").style.display === "flex"){
-    renderPleaseUI();
-  }
+    openModal(`
+      <h2>Inventory</h2>
+      <div class="hint">Your items. Survivors start with Rope, Torch, Berries.</div>
+      <div class="list">${rows}</div>
+      <button class="btn btnGold" onclick="(${closeModal.toString()})()">Close</button>
+    `);
+  };
 
-  // Buttons feel alive (but some locked)
-  $("inventoryBtn").disabled = false;
-  $("tradeBtn").disabled = false;
-  $("pleaseBtn").disabled = false;
-  $("craftBtn").disabled = false;
-  $("roleBtn").disabled = false;
+  /* =========================
+     10) TRADE (dropdowns, no typing)
+     ========================= */
+  $("tradeBtn").onclick = ()=>{
+    const data = lastRoomData;
+    const players = data?.players||{};
+    const me = players[myId];
+    if(!me) return;
 
-  // Challenger: no hunger, Survivors: hunger shown via HUD? (we do not show hunger in HUD here; add later if you want)
-}
+    const others = Object.values(players).filter(p=>p.id!==myId);
+    const inv = me.inventory||{};
 
-/* ============================
-   Inventory
-   ============================ */
-function openInventory(){
-  const me = localRoom?.players?.[myId];
-  if(!me) return;
+    const itemOptions = ITEM_CATALOG
+      .filter(it => (inv[it.key]||0)>0)
+      .map(it=>`<option value="${it.key}">${it.icon} ${it.name} (x${inv[it.key]})</option>`)
+      .join("") || `<option value="">(No items)</option>`;
 
-  // Fill add dropdown
-  $("addItemSelect").innerHTML = "";
-  for(const it of ITEM_DEFS){
-    const opt = document.createElement("option");
-    opt.value = it.id;
-    opt.textContent = `${it.icon} ${it.name}`;
-    $("addItemSelect").appendChild(opt);
-  }
+    const playerOptions = others.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (${p.role})</option>`).join("")
+      || `<option value="">(No other players)</option>`;
 
-  renderInventory(me.inventory || {});
-  openOverlay("invOverlay");
-}
+    const incoming = data.tradeRequests || {};
+    const incomingRows = Object.values(incoming)
+      .filter(r=>r.to===myId)
+      .slice(-12)
+      .map(r=>{
+        const it = itemByKey(r.item);
+        return `
+          <div class="listRow">
+            <span>${escapeHtml(r.fromName)} → you: ${it?.icon||""} ${it?.name||r.item} x${r.qty}</span>
+            <span style="display:flex; gap:8px;">
+              <button class="btn btnGreen" style="padding:8px 10px; font-size:13px;"
+                onclick="acceptTrade('${r.id}')">Accept</button>
+              <button class="btn btnRed" style="padding:8px 10px; font-size:13px;"
+                onclick="declineTrade('${r.id}')">Decline</button>
+            </span>
+          </div>
+        `;
+      }).join("") || `<div class="hint">No incoming trades.</div>`;
 
-function renderInventory(inv){
-  const box = $("invList");
-  box.innerHTML = "";
+    openModal(`
+      <h2>Trade</h2>
+      <div class="hint">Send an item to another player (dropdowns).</div>
+      <div class="row">
+        <div>
+          <label>Item</label>
+          <select id="tradeItem">${itemOptions}</select>
+        </div>
+        <div>
+          <label>Qty</label>
+          <select id="tradeQty">
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div>
+          <label>To player</label>
+          <select id="tradeTo">${playerOptions}</select>
+        </div>
+      </div>
+      <button class="btn btnGold" onclick="sendTrade()">Send Trade</button>
 
-  const entries = Object.entries(inv||{}).filter(([k,v])=>v>0);
-  if(entries.length === 0){
-    box.textContent = "Empty inventory.";
-    return;
-  }
+      <h2 style="margin-top:8px;">Incoming</h2>
+      <div class="list">${incomingRows}</div>
 
-  for(const [id, qty] of entries){
-    const def = ITEM_DEFS.find(x=>x.id===id) || {name:id, icon:"📦"};
-    const row = document.createElement("div");
-    row.className = "listRow";
-    row.innerHTML = `<span>${def.icon} ${def.name} <span style="opacity:.7;">x${qty}</span></span>
-                     <button class="btn btnSoft" style="padding:8px 10px; font-size:12px;">Use</button>`;
-    row.querySelector("button").onclick = ()=> {
-      alert(`Used: ${def.name} (demo)`);
+      <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
+    `);
+
+    // attach to window for modal buttons
+    window.sendTrade = async ()=>{
+      const it = $("tradeItem")?.value;
+      const qty = parseInt($("tradeQty")?.value||"1",10);
+      const to = $("tradeTo")?.value;
+      if(!it) return toast("No item to trade.");
+      if(!to) return toast("No target player.");
+      const have = inv[it]||0;
+      if(have<qty) return toast("Not enough.");
+
+      // create request
+      const id = db.ref(`rooms/${currentRoom}/tradeRequests`).push().key;
+      await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).set({
+        id,
+        from: myId,
+        fromName: me.name,
+        to,
+        item: it,
+        qty,
+        t: now()
+      });
+      pushFeed(`${me.name} offered a trade.`);
+      toast("Trade sent.");
     };
-    box.appendChild(row);
-  }
-}
 
-$("addItemBtn").onclick = async ()=>{
-  if(!currentRoom) return;
-  const id = $("addItemSelect").value;
-  const path = `rooms/${currentRoom}/players/${myId}/inventory/${id}`;
-  const snap = await db.ref(path).get();
-  const cur = snap.val() || 0;
-  await db.ref(path).set(cur + 1);
-  pushFeed(`${myName} obtained ${ITEM_DEFS.find(x=>x.id===id)?.name || id}.`);
-};
+    window.acceptTrade = async (id)=>{
+      const data2 = lastRoomData;
+      const req = data2?.tradeRequests?.[id];
+      if(!req || req.to!==myId) return;
 
-/* ============================
-   Trade (dropdowns)
-   ============================ */
-function openTrade(){
-  renderTradeUI();
-  openOverlay("tradeOverlay");
-}
+      const me2 = data2.players?.[myId];
+      const fromP = data2.players?.[req.from];
+      if(!me2 || !fromP) return;
 
-function renderTradeUI(){
-  const r = localRoom;
-  if(!r) return;
+      const fromInvRef = db.ref(`rooms/${currentRoom}/players/${req.from}/inventory/${req.item}`);
+      const toInvRef   = db.ref(`rooms/${currentRoom}/players/${myId}/inventory/${req.item}`);
 
-  const me = r.players?.[myId];
-  const inv = me?.inventory || {};
+      const fromQty = (fromP.inventory?.[req.item]||0);
+      if(fromQty < req.qty){
+        await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).remove();
+        return toast("Sender no longer has item.");
+      }
 
-  // Give dropdown: only items you have
-  const giveSel = $("tradeGive");
-  giveSel.innerHTML = "";
-  const have = Object.entries(inv).filter(([k,v])=>v>0);
-  if(have.length === 0){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No items";
-    giveSel.appendChild(opt);
-  } else {
-    for(const [id, qty] of have){
-      const def = ITEM_DEFS.find(x=>x.id===id) || {name:id, icon:"📦"};
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = `${def.icon} ${def.name} (x${qty})`;
-      giveSel.appendChild(opt);
-    }
-  }
+      // transfer
+      await fromInvRef.set(fromQty - req.qty);
+      const myQty = (me2.inventory?.[req.item]||0);
+      await toInvRef.set(myQty + req.qty);
 
-  // Want dropdown: all items
-  const wantSel = $("tradeWant");
-  wantSel.innerHTML = "";
-  for(const it of ITEM_DEFS){
-    const opt = document.createElement("option");
-    opt.value = it.id;
-    opt.textContent = `${it.icon} ${it.name}`;
-    wantSel.appendChild(opt);
-  }
+      await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).remove();
+      pushFeed(`Trade accepted: ${fromP.name} → ${me2.name}.`);
+      toast("Trade accepted.");
+    };
 
-  // To dropdown: other players
-  const toSel = $("tradeTo");
-  toSel.innerHTML = "";
-  const others = Object.values(r.players||{}).filter(p=>p.id !== myId);
-  if(others.length === 0){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No other players";
-    toSel.appendChild(opt);
-  } else {
-    for(const p of others){
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = `${p.name} (${p.role})`;
-      toSel.appendChild(opt);
-    }
-  }
+    window.declineTrade = async (id)=>{
+      const data2 = lastRoomData;
+      const req = data2?.tradeRequests?.[id];
+      if(!req || req.to!==myId) return;
+      await db.ref(`rooms/${currentRoom}/tradeRequests/${id}`).remove();
+      pushFeed(`Trade declined.`);
+      toast("Declined.");
+    };
+  };
 
-  // Inbox
-  const inbox = $("tradeInbox");
-  inbox.innerHTML = "";
-  const incoming = r.trades ? Object.values(r.trades).filter(t=>t.to===myId) : [];
-  if(incoming.length === 0){
-    inbox.textContent = "No incoming trades.";
-  } else {
-    for(const t of incoming.sort((a,b)=>a.ts-b.ts)){
-      const from = r.players?.[t.from]?.name || t.from;
-      const giveDef = ITEM_DEFS.find(x=>x.id===t.give) || {name:t.give, icon:"📦"};
-      const wantDef = ITEM_DEFS.find(x=>x.id===t.want) || {name:t.want, icon:"📦"};
+  /* =========================
+     11) CHALLENGE PICK + START NIGHT
+     ========================= */
+  $("pickChallengeBtn").onclick = ()=>{
+    const data = lastRoomData;
+    const me = data?.players?.[myId];
+    if(!me || me.role!=="Challenger") return;
 
-      const row = document.createElement("div");
-      row.className = "listRow";
-      row.innerHTML = `
-        <span><b>${from}</b> offers ${giveDef.icon} ${giveDef.name} for ${wantDef.icon} ${wantDef.name}</span>
-        <span style="display:flex; gap:8px;">
-          <button class="btn btnGreen" style="padding:8px 10px; font-size:12px;">Accept</button>
-          <button class="btn btnRed" style="padding:8px 10px; font-size:12px;">Decline</button>
-        </span>
-      `;
-      const [acc, dec] = row.querySelectorAll("button");
-      acc.onclick = ()=> acceptTrade(t);
-      dec.onclick = ()=> declineTrade(t);
-      inbox.appendChild(row);
-    }
-  }
-}
+    const options = CHALLENGES.map((c,i)=>`
+      <div class="listRow">
+        <span><b>${escapeHtml(c.title)}</b> (diff ${c.diff})</span>
+        <button class="btn btnGreen" style="padding:8px 10px; font-size:13px;" onclick="pickC(${i})">Pick</button>
+      </div>
+    `).join("");
 
-$("sendTradeBtn").onclick = async ()=>{
-  const r = localRoom;
-  const give = $("tradeGive").value;
-  const to = $("tradeTo").value;
-  const want = $("tradeWant").value;
+    openModal(`
+      <h2>Pick Challenge</h2>
+      <div class="hint">Pick a challenge for tonight (or random). Event can modify difficulty.</div>
+      <div class="list">${options}</div>
+      <button class="btn btnGold" onclick="pickRandom()">Random</button>
+      <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
+    `);
 
-  if(!give) return alert("You have no items to give.");
-  if(!to) return alert("No target player.");
-  if(!want) return alert("Pick what you want.");
-
-  const me = r.players?.[myId];
-  if(!me?.inventory?.[give] || me.inventory[give] <= 0) return alert("You do not have that item.");
-
-  const tradeRef = db.ref(`rooms/${currentRoom}/trades`).push();
-  await tradeRef.set({ id: tradeRef.key, from: myId, to, give, want, ts: now() });
-  pushFeed(`${myName} sent a trade.`);
-};
-
-async function acceptTrade(t){
-  const r = localRoom;
-  const me = r.players?.[myId];
-  const fromP = r.players?.[t.from];
-  if(!me || !fromP) return;
-
-  // check you have the wanted item to pay
-  const youPay = t.want;
-  if(!me.inventory?.[youPay] || me.inventory[youPay] <= 0){
-    alert("You don't have the requested item.");
-    return;
-  }
-
-  // check sender still has the give item
-  if(!fromP.inventory?.[t.give] || fromP.inventory[t.give] <= 0){
-    alert("Sender no longer has that item.");
-    return;
-  }
-
-  const updates = {};
-  updates[`rooms/${currentRoom}/players/${t.from}/inventory/${t.give}`] = fromP.inventory[t.give] - 1;
-  updates[`rooms/${currentRoom}/players/${myId}/inventory/${t.give}`] = (me.inventory[t.give]||0) + 1;
-
-  updates[`rooms/${currentRoom}/players/${myId}/inventory/${youPay}`] = me.inventory[youPay] - 1;
-  updates[`rooms/${currentRoom}/players/${t.from}/inventory/${youPay}`] = (fromP.inventory[youPay]||0) + 1;
-
-  updates[`rooms/${currentRoom}/trades/${t.id}`] = null;
-
-  await db.ref().update(updates);
-  pushFeed(`${me.name} accepted a trade from ${fromP.name}.`);
-}
-
-async function declineTrade(t){
-  await db.ref(`rooms/${currentRoom}/trades/${t.id}`).remove();
-  pushFeed(`${myName} declined a trade.`);
-}
-
-/* ============================
-   Ready / Night flow
-   ============================ */
-async function toggleReady(){
-  const me = localRoom?.players?.[myId];
-  if(!me) return;
-  await db.ref(`rooms/${currentRoom}/players/${myId}/ready`).set(!me.ready);
-  pushFeed(`${myName} is ${!me.ready ? "ready" : "not ready"}.`);
-}
-
-async function openChallengePick(){
-  if(!isChallenger) return alert("Only Challenger can pick challenge.");
-  const list = $("challengeList");
-  list.innerHTML = "";
-
-  for(const c of CHALLENGES){
-    const row = document.createElement("div");
-    row.className = "listRow";
-    row.innerHTML = `
-      <span><b>${c.title}</b> <span style="opacity:.7;">(diff ${c.diff})</span><br><span style="opacity:.75;font-weight:700;">${c.text}</span></span>
-      <button class="btn btnGold" style="padding:8px 10px; font-size:12px;">Pick</button>
-    `;
-    row.querySelector("button").onclick = async ()=>{
-      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(c.id);
-      await db.ref(`rooms/${currentRoom}/currentChallengeText`).set(`${c.title}: ${c.text}`);
+    window.pickC = async (i)=>{
+      const c = CHALLENGES[i];
+      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(c);
       pushFeed(`Challenger picked: ${c.title}.`);
-      closeOverlay("challengeOverlay");
+      closeModal();
     };
-    list.appendChild(row);
+    window.pickRandom = async ()=>{
+      const c = CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
+      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(c);
+      pushFeed(`Challenger picked (random): ${c.title}.`);
+      closeModal();
+    };
+  };
+
+  $("startNightBtn").onclick = async ()=>{
+    const data = lastRoomData;
+    const me = data?.players?.[myId];
+    if(!me || me.role!=="Challenger") return;
+
+    if(data.phase !== "lobby" && data.phase !== "night") {
+      // allow from resolve/end? no
+    }
+
+    // require at least 1 survivor
+    const surv = Object.values(data.players||{}).filter(p=>p.role==="Survivor");
+    if(surv.length===0) return alert("Need at least 1 Survivor.");
+
+    // if lobby, require survivors ready
+    if(data.phase==="lobby" && !allSurvivorsReady(data)){
+      return alert("All Survivors must be READY.");
+    }
+
+    // choose challenge if none
+    let challenge = data.currentChallenge;
+    if(!challenge){
+      challenge = CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
+      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(challenge);
+    }
+
+    // random event each night
+    const ev = EVENT_LIST[Math.floor(Math.random()*EVENT_LIST.length)];
+    await db.ref(`rooms/${currentRoom}/event`).set(ev);
+
+    // reset action buckets
+    await db.ref(`rooms/${currentRoom}/actions`).set({});
+    await db.ref(`rooms/${currentRoom}/pleaseRequests`).set({});
+
+    // increment night
+    const nextNight = (data.night||0) + 1;
+    await db.ref(`rooms/${currentRoom}/night`).set(nextNight);
+
+    // set phase to night + timer
+    const endsAt = now() + 30000; // 30s
+    await db.ref(`rooms/${currentRoom}`).update({
+      phase: "night",
+      timerEndsAt: endsAt
+    });
+
+    // reset ready flags for survivors for next lobby later
+    for(const p of Object.values(data.players||{})){
+      if(p.role==="Survivor"){
+        db.ref(`rooms/${currentRoom}/players/${p.id}/ready`).set(false);
+      }
+    }
+
+    pushFeed(`Night ${nextNight} started: ${challenge.title} (${ev.title}).`);
+  };
+
+  /* =========================
+     12) PLEASE (3 options) + Challenger cost 1-2 supply
+     ========================= */
+  $("pleaseBtn").onclick = ()=>{
+    const data = lastRoomData;
+    if(!data || data.phase!=="night") return;
+
+    const me = data.players?.[myId];
+    if(!me || me.role!=="Survivor") return;
+
+    const inv = me.inventory||{};
+    const invOptions = ITEM_CATALOG
+      .filter(it => (inv[it.key]||0)>0)
+      .map(it=>`<option value="${it.key}">${it.icon} ${it.name} (x${inv[it.key]})</option>`)
+      .join("") || `<option value="">(No items)</option>`;
+
+    openModal(`
+      <h2>Please</h2>
+      <div class="hint">
+        Choose one option for this night. Challenger will approve and choose cost (1–2 supply).
+      </div>
+
+      <div class="paper" style="padding:10px; border-radius:14px; border:1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.75);">
+        <label>Option</label>
+        <select id="plType">
+          <option value="item">Item (use 1 item)</option>
+          <option value="heal">Heal (+1 heart)</option>
+          <option value="skipfail">Skip Fail (protect team)</option>
+        </select>
+
+        <div id="plItemBox" style="margin-top:10px;">
+          <label>Pick item</label>
+          <select id="plItem">${invOptions}</select>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btnGold" onclick="sendPlease()">Send</button>
+          <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
+        </div>
+      </div>
+    `);
+
+    $("plType").onchange = ()=>{
+      const t = $("plType").value;
+      $("plItemBox").style.display = (t==="item") ? "block" : "none";
+    };
+
+    window.sendPlease = async ()=>{
+      const t = $("plType").value;
+      const item = $("plItem")?.value || null;
+
+      if(t==="item" && !item) return toast("No item.");
+
+      const id = db.ref(`rooms/${currentRoom}/pleaseRequests`).push().key;
+      await db.ref(`rooms/${currentRoom}/pleaseRequests/${id}`).set({
+        id,
+        from: myId,
+        fromName: me.name,
+        type: t,
+        item,
+        status: "pending",
+        cost: 1,
+        t: now()
+      });
+
+      pushFeed(`${me.name} sent a Please request.`);
+      toast("Please sent.");
+      closeModal();
+    };
+  };
+
+  /* Challenger sees & approves Please requests automatically via Role Action (reuse PickChallengeBtn slot) */
+  $("pickChallengeBtn").addEventListener("contextmenu", (e)=>e.preventDefault()); // no menu
+
+  // Add a "Role Action" style: long press not reliable, so we show approvals inside Pick Challenge modal for Challenger during night:
+  $("pickChallengeBtn").onclick = ()=>{
+    const data = lastRoomData;
+    const me = data?.players?.[myId];
+    if(!me || me.role!=="Challenger") return;
+
+    const reqs = Object.values(data.pleaseRequests||{}).sort((a,b)=>(a.t||0)-(b.t||0));
+    const pending = reqs.filter(r=>r.status==="pending");
+    const reqRows = pending.map(r=>{
+      const typeLabel = r.type==="item" ? `Item: ${(itemByKey(r.item)?.icon||"")} ${(itemByKey(r.item)?.name||r.item)}`
+                       : r.type==="heal" ? "Heal (+1 heart)"
+                       : "Skip Fail";
+      return `
+        <div class="listRow">
+          <span><b>${escapeHtml(r.fromName)}</b> — ${escapeHtml(typeLabel)}</span>
+          <span style="display:flex; gap:8px; align-items:center;">
+            <select id="cost_${r.id}" style="padding:8px; border-radius:12px;">
+              <option value="1">Cost 1</option>
+              <option value="2">Cost 2</option>
+            </select>
+            <button class="btn btnGreen" style="padding:8px 10px; font-size:13px;" onclick="approvePlease('${r.id}')">Approve</button>
+            <button class="btn btnRed" style="padding:8px 10px; font-size:13px;" onclick="denyPlease('${r.id}')">Deny</button>
+          </span>
+        </div>
+      `;
+    }).join("") || `<div class="hint">No pending Please requests.</div>`;
+
+    // Also allow picking challenge in same modal
+    const chRows = CHALLENGES.map((c,i)=>`
+      <div class="listRow">
+        <span><b>${escapeHtml(c.title)}</b> (diff ${c.diff})</span>
+        <button class="btn btnGold" style="padding:8px 10px; font-size:13px;" onclick="pickC(${i})">Set</button>
+      </div>
+    `).join("");
+
+    openModal(`
+      <h2>Challenger Panel</h2>
+      <div class="hint">Approve Please (choose cost 1–2 Supply). You can also set tonight's challenge.</div>
+
+      <h2 style="margin-top:6px;">Please Requests</h2>
+      <div class="list">${reqRows}</div>
+
+      <h2 style="margin-top:6px;">Set Challenge</h2>
+      <div class="list">${chRows}</div>
+
+      <button class="btn btnSoft" onclick="(${closeModal.toString()})()">Close</button>
+    `);
+
+    window.pickC = async (i)=>{
+      const c = CHALLENGES[i];
+      await db.ref(`rooms/${currentRoom}/currentChallenge`).set(c);
+      pushFeed(`Challenger set challenge: ${c.title}.`);
+      toast("Challenge set.");
+    };
+
+    window.approvePlease = async (id)=>{
+      const data2 = lastRoomData;
+      const req = data2?.pleaseRequests?.[id];
+      if(!req || req.status!=="pending") return;
+      const cost = parseInt(document.getElementById(`cost_${id}`)?.value || "1",10);
+
+      const supply = data2.supply ?? 0;
+      if(supply < cost) return alert("Not enough Supply.");
+
+      // deduct supply
+      await db.ref(`rooms/${currentRoom}/supply`).set(supply - cost);
+
+      // mark approved
+      await db.ref(`rooms/${currentRoom}/pleaseRequests/${id}`).update({ status:"approved", cost });
+
+      // apply effect
+      await applyPleaseApproved(req);
+
+      pushFeed(`Approved Please for ${req.fromName} (cost ${cost}).`);
+      toast("Approved.");
+    };
+
+    window.denyPlease = async (id)=>{
+      const data2 = lastRoomData;
+      const req = data2?.pleaseRequests?.[id];
+      if(!req || req.status!=="pending") return;
+      await db.ref(`rooms/${currentRoom}/pleaseRequests/${id}`).update({ status:"denied" });
+      pushFeed(`Denied Please for ${req.fromName}.`);
+      toast("Denied.");
+    };
+  };
+
+  async function applyPleaseApproved(req){
+    const data = lastRoomData;
+    if(!data) return;
+
+    const p = data.players?.[req.from];
+    if(!p) return;
+
+    if(req.type==="item"){
+      const it = req.item;
+      const have = p.inventory?.[it]||0;
+      if(have<=0) return;
+
+      // consume item
+      await db.ref(`rooms/${currentRoom}/players/${req.from}/inventory/${it}`).set(have-1);
+
+      // add "support" action
+      await db.ref(`rooms/${currentRoom}/actions/${req.from}`).set({
+        type:"item",
+        item: it,
+        value: itemSupportValue(it, data.event),
+        t: now()
+      });
+    }
+
+    if(req.type==="heal"){
+      const hearts = p.hearts||0;
+      await db.ref(`rooms/${currentRoom}/players/${req.from}/hearts`).set(clamp(hearts+1,0,5));
+      await db.ref(`rooms/${currentRoom}/actions/${req.from}`).set({ type:"heal", value:1, t: now() });
+    }
+
+    if(req.type==="skipfail"){
+      await db.ref(`rooms/${currentRoom}/actions/${req.from}`).set({ type:"skipfail", value:1, t: now() });
+    }
   }
 
-  openOverlay("challengeOverlay");
-}
-
-async function startNight(){
-  if(!isChallenger) return;
-
-  const r = localRoom;
-  if(!r.currentChallengeText){
-    alert("Pick a challenge first.");
-    return;
+  function itemSupportValue(itemKey, event){
+    let v = 1;
+    if(itemKey==="torch") v = 2;
+    if(itemKey==="trap") v = 2;
+    if(itemKey==="berries") v = 1;
+    if(itemKey==="rope") v = 2;
+    if(itemKey==="medkit") v = 2;
+    if(event?.tag==="rain" && itemKey==="torch") v = 1; // nerf torch in rain
+    return v;
   }
 
-  // require at least 2 players for meaningful round (you can change this)
-  const count = r.players ? Object.keys(r.players).length : 1;
-  if(count < 2){
-    alert("Need at least 2 players.");
-    return;
+  /* =========================
+     13) AUTO-RESOLVE when timer ends OR all survivors have an action
+     ========================= */
+  async function maybeAutoResolve(data){
+    if(!data || data.phase!=="night") return;
+    if(!data.timerEndsAt) return;
+
+    const ms = data.timerEndsAt - now();
+    if(ms > 0) return;
+
+    // avoid multiple resolves
+    const resolveLockRef = db.ref(`rooms/${currentRoom}/resolveLock`);
+    const lockSnap = await resolveLockRef.get();
+    const lock = lockSnap.val();
+    if(lock && now()-lock < 8000) return; // already resolving
+
+    await resolveLockRef.set(now());
+    await resolveNight();
   }
 
-  // everyone must be ready except challenger
-  const players = Object.values(r.players||{});
-  const survivors = players.filter(p=>p.role==="Survivor");
-  const allReady = survivors.every(p=>p.ready);
-  if(!allReady){
-    alert("Not all Survivors are ready.");
-    return;
-  }
+  async function resolveNight(){
+    const roomRef = db.ref(`rooms/${currentRoom}`);
+    const data = (await roomRef.get()).val();
+    if(!data || data.phase!=="night") return;
 
-  const nextNight = (r.night||0) + 1;
+    await roomRef.update({ phase:"resolve", timerEndsAt:null });
 
-  // reset readies, random mission/event
-  const updates = {};
-  for(const p of players){
-    updates[`rooms/${currentRoom}/players/${p.id}/ready`] = false;
-    updates[`rooms/${currentRoom}/players/${p.id}/skipFailUsed`] = false;
-  }
+    const players = data.players||{};
+    const survivors = Object.values(players).filter(p=>p.role==="Survivor");
+    const challenge = data.currentChallenge || CHALLENGES[0];
+    const event = data.event || null;
 
-  updates[`rooms/${currentRoom}/phase`] = "night";
-  updates[`rooms/${currentRoom}/night`] = nextNight;
-  updates[`rooms/${currentRoom}/mission`] = MISSIONS[Math.floor(Math.random()*MISSIONS.length)];
-  updates[`rooms/${currentRoom}/event`] = EVENTS[Math.floor(Math.random()*EVENTS.length)];
+    let diff = challenge.diff || 3;
+    if(event?.diffDelta) diff += event.diffDelta;
 
-  await db.ref().update(updates);
+    // compute team support
+    const actions = data.actions||{};
+    let support = 0;
+    let hasSkipFail = false;
 
-  // Show card 3 sec for everyone (client UI uses currentChallengeText)
-  setNightCard(r.currentChallengeText, "Night started…", true);
-  setBadge("Night running");
+    for(const s of survivors){
+      const a = actions[s.id];
+      if(!a) continue;
+      if(a.type==="item") support += (a.value||0);
+      if(a.type==="heal") support += 0; // heal doesn't help pass challenge
+      if(a.type==="skipfail") hasSkipFail = true;
+    }
 
-  pushFeed(`Night ${nextNight} started.`);
+    const success = support >= diff;
 
-  // simple auto-resolution after 6 seconds: random fails for survivors (demo)
-  setTimeout(async ()=>{
-    const rr = (await db.ref(`rooms/${currentRoom}`).get()).val();
-    if(!rr || rr.phase !== "night") return;
+    // hunger tick for survivors each night
+    for(const s of survivors){
+      const h = s.hunger ?? 70;
+      const delta = (event?.hungerDelta || 0);
+      const newH = clamp(h - 10 + delta, 0, 70);
+      await db.ref(`rooms/${currentRoom}/players/${s.id}/hunger`).set(newH);
+      if(newH===0){
+        const hearts = s.hearts||0;
+        if(hearts>0) await db.ref(`rooms/${currentRoom}/players/${s.id}/hearts`).set(hearts-1);
+      }
+    }
 
-    const ps = Object.values(rr.players||{});
-    const svs = ps.filter(p=>p.role==="Survivor");
+    if(success){
+      pushFeed(`✅ Success! Support ${support}/${diff}.`);
+    }else{
+      if(hasSkipFail){
+        pushFeed(`🛡️ Fail avoided by Skip Fail! Support ${support}/${diff}.`);
+      }else{
+        const newFails = (data.fails||0) + 1;
+        await db.ref(`rooms/${currentRoom}/fails`).set(newFails);
+        pushFeed(`❌ Failed! Support ${support}/${diff}. Fails now ${newFails}/${MAX_FAILS}.`);
 
-    const up = {};
-    for(const s of svs){
-      // if player used Skip Fail, they avoid 1 fail (handled by request approve)
-      // random: 35% chance of fail per night
-      const fail = Math.random() < 0.35;
-      if(fail){
-        const newFails = (s.fails||0) + 1;
-        up[`rooms/${currentRoom}/players/${s.id}/fails`] = newFails;
-        if(newFails >= (rr.failsMax||3)){
-          // lose a heart when max fails hit, then reset fails
-          const newHearts = (s.hearts||0) - 1;
-          up[`rooms/${currentRoom}/players/${s.id}/hearts`] = newHearts;
-          up[`rooms/${currentRoom}/players/${s.id}/fails`] = 0;
+        // lose 1 heart from a random survivor
+        if(survivors.length){
+          const victim = survivors[Math.floor(Math.random()*survivors.length)];
+          const hearts = victim.hearts||0;
+          if(hearts>0){
+            await db.ref(`rooms/${currentRoom}/players/${victim.id}/hearts`).set(hearts-1);
+            pushFeed(`💔 ${victim.name} lost 1 heart.`);
+          }
         }
       }
     }
 
-    // clear current challenge for next pick
-    up[`rooms/${currentRoom}/currentChallenge`] = null;
-    up[`rooms/${currentRoom}/currentChallengeText`] = null;
-    up[`rooms/${currentRoom}/phase`] = "lobby";
+    // check win/lose
+    const dataAfter = (await roomRef.get()).val();
+    const playersAfter = dataAfter.players||{};
+    const survAfter = Object.values(playersAfter).filter(p=>p.role==="Survivor");
+    const anyAlive = survAfter.some(p=>(p.hearts||0)>0);
 
-    await db.ref().update(up);
-    pushFeed(`Night ${rr.night} ended.`);
-    setBadge("Lobby");
-    setNightCard("—", isChallenger ? "Pick a challenge" : "Wait for Challenger", false);
-  }, 6000);
-}
+    if((dataAfter.fails||0) >= MAX_FAILS || !anyAlive){
+      await roomRef.update({
+        phase:"end",
+        endText: "DEFEAT",
+      });
+      pushFeed("Game Over: Defeat.");
+      return;
+    }
 
-/* ============================
-   Role Action (simple demo)
-   ============================ */
-async function roleAction(){
-  const r = localRoom;
-  const me = r?.players?.[myId];
-  if(!me) return;
+    if((dataAfter.night||0) >= MAX_NIGHTS){
+      await roomRef.update({
+        phase:"end",
+        endText: "VICTORY",
+      });
+      pushFeed("Game Over: Victory!");
+      return;
+    }
 
-  if(me.role === "Challenger"){
-    // spend 1 power to gain 1 supply
-    if((me.power||0) <= 0) return alert("No Power left.");
-    const supply = (r.supply||0) + 1;
-    await db.ref().update({
-      [`rooms/${currentRoom}/players/${myId}/power`]: (me.power||0) - 1,
-      [`rooms/${currentRoom}/supply`]: supply
+    // back to lobby
+    await roomRef.update({
+      phase:"lobby",
+      currentChallenge: null,
+      event: null,
+      actions: {},
+      pleaseRequests: {},
+      tradeRequests: {}
     });
-    pushFeed("Challenger used Power → +1 Supply.");
-  } else {
-    // survivor: small self-help, 1 per lobby: +1 hunger (not shown) or +small bonus
-    alert("Survivor role action: placeholder (next upgrade).");
-  }
-}
-
-/* ============================
-   PLEASE system (UPGRADE)
-   - 3 options: item / heal / skip fail
-   - challenger sets cost 1-2 supply
-   - challenger approves/denies
-   ============================ */
-function openPlease(){
-  renderPleaseUI();
-  openOverlay("pleaseOverlay");
-}
-
-function renderPleaseUI(){
-  const r = localRoom;
-  if(!r) return;
-
-  const me = r.players?.[myId];
-  const cost = r.pleaseCost || 1;
-
-  $("pleaseChControls").style.display = isChallenger ? "block" : "none";
-  $("pleaseSvControls").style.display = !isChallenger ? "block" : "none";
-
-  if(isChallenger){
-    $("pleaseCostSelect").value = String(cost);
-    renderPleaseQueue();
-  }
-}
-
-$("saveCostBtn").onclick = async ()=>{
-  if(!isChallenger) return;
-  const v = parseInt($("pleaseCostSelect").value,10) || 1;
-  await db.ref(`rooms/${currentRoom}/pleaseCost`).set(clamp(v,1,2));
-  pushFeed(`Challenger set Please cost to ${v} Supply.`);
-};
-
-$("pleaseItemBtn").onclick = ()=> sendPleaseRequest("item");
-$("pleaseHealBtn").onclick = ()=> sendPleaseRequest("heal");
-$("pleaseSkipBtn").onclick = ()=> sendPleaseRequest("skip");
-
-async function sendPleaseRequest(type){
-  const r = localRoom;
-  const me = r?.players?.[myId];
-  if(!me || isChallenger) return;
-
-  const reqRef = db.ref(`rooms/${currentRoom}/pleaseRequests/${myId}`);
-  const existing = (await reqRef.get()).val();
-  if(existing && existing.status === "pending"){
-    alert("You already have a pending request.");
-    return;
+    pushFeed("Back to lobby. Press Ready for next night.");
   }
 
-  await reqRef.set({
-    from: myId,
-    name: me.name,
-    type,
-    status: "pending",
-    ts: now()
+  /* =========================
+     14) SAFETY: if assets missing show a hint
+     ========================= */
+  window.addEventListener("error", (e)=>{
+    // quiet
   });
 
-  pushFeed(`${me.name} asked: Please (${type}).`);
-  alert("Request sent. Challenger must approve.");
-}
-
-async function renderPleaseQueue(){
-  const r = localRoom;
-  const cost = r.pleaseCost || 1;
-  const q = r.pleaseRequests || {};
-  const list = $("pleaseQueue");
-  list.innerHTML = "";
-
-  const arr = Object.values(q).filter(x=>x.status==="pending").sort((a,b)=>a.ts-b.ts);
-  if(arr.length === 0){
-    list.textContent = "No requests.";
-    return;
-  }
-
-  for(const req of arr){
-    const row = document.createElement("div");
-    row.className = "listRow";
-    row.innerHTML = `
-      <span><b>${req.name}</b> → <span class="tag">${req.type.toUpperCase()}</span> <span style="opacity:.7;">(cost ${cost})</span></span>
-      <span style="display:flex; gap:8px;">
-        <button class="btn btnGreen" style="padding:8px 10px; font-size:12px;">Approve</button>
-        <button class="btn btnRed" style="padding:8px 10px; font-size:12px;">Deny</button>
-      </span>
-    `;
-    const [ap, dn] = row.querySelectorAll("button");
-    ap.onclick = ()=> approvePlease(req.from);
-    dn.onclick = ()=> denyPlease(req.from);
-    list.appendChild(row);
-  }
-}
-
-async function approvePlease(playerId){
-  const r = localRoom;
-  const cost = r.pleaseCost || 1;
-  const supply = r.supply || 0;
-
-  if(supply < cost){
-    alert("Not enough Supply.");
-    return;
-  }
-
-  const reqSnap = await db.ref(`rooms/${currentRoom}/pleaseRequests/${playerId}`).get();
-  const req = reqSnap.val();
-  if(!req || req.status !== "pending") return;
-
-  const p = r.players?.[playerId];
-  if(!p) return;
-
-  const updates = {};
-  updates[`rooms/${currentRoom}/supply`] = supply - cost;
-  updates[`rooms/${currentRoom}/pleaseRequests/${playerId}/status`] = "approved";
-
-  if(req.type === "heal"){
-    const newHearts = clamp((p.hearts||0) + 1, 0, 5);
-    updates[`rooms/${currentRoom}/players/${playerId}/hearts`] = newHearts;
-  }
-  else if(req.type === "item"){
-    // give random item
-    const it = ITEM_DEFS[Math.floor(Math.random()*ITEM_DEFS.length)];
-    const cur = (p.inventory?.[it.id] || 0) + 1;
-    updates[`rooms/${currentRoom}/players/${playerId}/inventory/${it.id}`] = cur;
-  }
-  else if(req.type === "skip"){
-    // reduce fails by 1 (minimum 0)
-    const newFails = clamp((p.fails||0) - 1, 0, 99);
-    updates[`rooms/${currentRoom}/players/${playerId}/fails`] = newFails;
-    updates[`rooms/${currentRoom}/players/${playerId}/skipFailUsed`] = true;
-  }
-
-  await db.ref().update(updates);
-  pushFeed(`Challenger approved Please for ${p.name} (${req.type}).`);
-  renderPleaseQueue();
-}
-
-async function denyPlease(playerId){
-  const r = localRoom;
-  const p = r.players?.[playerId];
-  await db.ref(`rooms/${currentRoom}/pleaseRequests/${playerId}`).update({ status: "denied" });
-  pushFeed(`Challenger denied Please for ${p?.name || playerId}.`);
-  renderPleaseQueue();
-}
-
-/* ============================
-   Win/Lose (basic)
-   - Survivors win if night reaches 7 and at least one survivor has hearts > 0
-   - Challenger wins if all survivors hearts <= 0
-   ============================ */
-async function checkWinLose(r){
-  if(r.ended) return;
-
-  const ps = Object.values(r.players||{});
-  const svs = ps.filter(p=>p.role==="Survivor");
-  if(svs.length === 0) return;
-
-  const alive = svs.some(p=>(p.hearts||0) > 0);
-
-  // Challenger win
-  if(!alive){
-    await endGame("Challenger wins!", "All Survivors lost their hearts.", "assets/win-challenger.mp4");
-    return;
-  }
-
-  // Survivors win after 7 nights (if alive)
-  if((r.night||0) >= (r.nightsMax||7)){
-    await endGame("Survivors win!", "You survived 7 nights.", "assets/win-survivors.mp4");
-    return;
-  }
-}
-
-async function endGame(title, text, videoPath){
-  // mark ended in DB once (challenger writes, but allow anyone)
-  try{
-    await db.ref(`rooms/${currentRoom}/ended`).transaction(cur => cur || { title, text, at: now(), video: videoPath||null });
-  }catch(e){}
-
-  $("endTitle").textContent = title;
-  $("endText").textContent = text;
-
-  const v = $("endVideo");
-  if(videoPath){
-    v.src = videoPath; // optional: put file in assets/
-    v.style.display = "block";
-  } else {
-    v.style.display = "none";
-  }
-
-  openOverlay("endOverlay");
-}
-
-/* ============================
-   Auto-show end overlay if ended
-   ============================ */
-db.ref().on("value", ()=>{}); // keep firebase warm (no-op)
-
-/* ============================
-   If user opens with ?room=XXXXXX
-   ============================ */
-(function initFromUrl(){
-  const u = new URL(location.href);
-  const rr = safeRoom((u.searchParams.get("room")||"").toUpperCase());
-  if(rr){
-    $("roomInput").value = rr;
-  }
-})();
 </script>
 
 </body>
