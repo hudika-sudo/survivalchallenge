@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Survival Challenge</title>
 
   <!-- Firebase (compat) -->
@@ -12,465 +12,416 @@
   <style>
     :root{
       --pad: 12px;
-      --r: 18px;
-      --shadow: 0 10px 22px rgba(0,0,0,.28);
-      --ink: #2b1d0e;
-      --paper: rgba(255,255,255,.92);
-      --paper2: rgba(255,255,255,.78);
+      --radius: 18px;
+      --cardRadius: 22px;
+      --shadow: 0 10px 24px rgba(0,0,0,.28);
+      --stroke: rgba(0,0,0,.20);
+
       --safeTop: env(safe-area-inset-top, 0px);
       --safeBottom: env(safe-area-inset-bottom, 0px);
-      --stickyBarH: 112px;
+
+      --stickyBarH: 120px;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
     body{
       margin:0;
-      color:var(--ink);
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: url("assets/wood.png") center/cover fixed no-repeat;
-      overflow:hidden; /* scroll is on .wrap */
-    }
-    body::before{
-      content:"";
-      position:fixed; inset:0;
-      background:url("assets/paper.png") center/cover no-repeat;
-      opacity:.55;
-      pointer-events:none;
-      z-index:0;
-    }
-    .wrap{
-      position:fixed; inset:0;
-      padding: calc(var(--pad) + var(--safeTop)) var(--pad) calc(var(--stickyBarH) + var(--safeBottom)) var(--pad);
-      display:flex; flex-direction:column;
-      gap: 12px;
-      overflow-y:auto;
-      -webkit-overflow-scrolling: touch;
-      z-index:1;
-    }
-    .card{
-      background: var(--paper);
-      border-radius: var(--r);
-      box-shadow: var(--shadow);
-      border: 2px solid rgba(0,0,0,.12);
+      color:#2b1d0e;
+      background:url("assets/wood.png") center/cover fixed no-repeat;
       overflow:hidden;
     }
-    .cardHeader{
-      padding: 10px 12px;
-      font-weight: 900;
-      font-size: 18px;
-      background: rgba(0,0,0,.04);
-    }
-    .cardBody{ padding: 12px; }
 
-    #startScreen{
-      min-height: calc(100vh - 160px);
+    /* Main scroll container */
+    .wrap{
+      position:fixed;
+      inset:0;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      padding:
+        calc(var(--pad) + var(--safeTop))
+        var(--pad)
+        calc(var(--stickyBarH) + 28px + var(--safeBottom))
+        var(--pad);
+    }
+
+    /* Paper cards */
+    .panel{
+      background:
+        url("assets/paper.png") center/cover no-repeat,
+        rgba(255,255,255,.92);
+      border:1px solid var(--stroke);
+      border-radius: var(--cardRadius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .titleRow{
       display:flex;
-      flex-direction:column;
       align-items:center;
       justify-content:center;
-      gap: 10px;
-      text-align:center;
+      gap:10px;
+      padding: 8px 6px 2px;
     }
     #logo{
-      width:min(420px, 92vw);
+      width:min(520px, 92vw);
       height:auto;
       display:block;
-      margin: 0 auto;
-      filter: drop-shadow(0 10px 16px rgba(0,0,0,.25));
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
     }
-    .subtitle{ margin:0; font-weight:800; opacity:.88; }
 
-    .row{
-      display:flex; gap:10px;
-      width:min(520px, 94vw);
-      align-items:center; justify-content:center;
-      flex-wrap:wrap;
-    }
-    input[type="text"]{
-      width: 180px;
-      padding: 12px 12px;
-      border-radius: 14px;
-      border: 2px solid rgba(0,0,0,.18);
-      background: rgba(255,255,255,.85);
-      font-size: 18px;
-      text-transform: uppercase;
-      text-align:center;
-      outline:none;
-    }
-    button{
-      border:0;
-      border-radius: 16px;
-      padding: 12px 14px;
-      font-weight: 900;
-      font-size: 16px;
-      cursor:pointer;
-      color: #1d140a;
-      box-shadow: 0 8px 18px rgba(0,0,0,.22);
-      transition: transform .08s ease, filter .15s ease;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    button:active{ transform: scale(.98); }
-    button[disabled]{ opacity:.5; cursor:not-allowed; filter: grayscale(1); }
-
-    .btnGold{ background: linear-gradient(#ffe8a8,#f0c85e); }
-    .btnGreen{ background: linear-gradient(#7cf58a,#35c255); color:#0f2a12;}
-    .btnRed{ background: linear-gradient(#ff8c8c,#e24a4a); color:#2a0f0f;}
-    .btnGray{ background: linear-gradient(#f1f1f1,#d7d7d7); }
-
-    .hudGrid{
+    /* Status grid */
+    .grid{
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+      margin-top: 10px;
     }
-    .stat{
-      background: var(--paper2);
-      border-radius: 16px;
-      padding: 10px 12px;
-      border: 1px solid rgba(0,0,0,.10);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      font-weight: 900;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
-      min-height: 44px;
-    }
-    .stat span:first-child{ opacity:.75; font-weight:900; }
-    .stat span:last-child{ font-size: 18px; }
-
-    #feedBox{ display:flex; flex-direction:column; gap: 10px; }
-    .feedLine{
-      background: rgba(255,255,255,.70);
-      border-radius: 14px;
-      padding: 10px 12px;
-      border: 1px solid rgba(0,0,0,.10);
-      font-weight: 800;
-    }
-
-    .nightCard{
-      position:relative;
-      width: 100%;
-      min-height: 200px;
+    .pill{
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(0,0,0,.12);
       border-radius: 18px;
-      background:
-        url("assets/card-frame.png") center/cover no-repeat,
-        rgba(255,255,255,.8);
+      padding: 12px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+      min-height: 52px;
+    }
+    .pill b{ font-size: 18px; }
+    .muted{ opacity:.7; font-weight:600; }
+
+    /* Room feed */
+    .feedBox{
+      background: rgba(255,255,255,.70);
+      border: 1px solid rgba(0,0,0,.12);
+      border-radius: 16px;
+      padding: 10px;
+      min-height: 72px;
+    }
+    .feedLine{
+      padding: 6px 2px;
+      border-bottom: 1px dashed rgba(0,0,0,.15);
+      font-weight: 650;
+    }
+    .feedLine:last-child{ border-bottom:none; }
+
+    /* Night card */
+    .cardStage{
+      width:100%;
+      border-radius: 22px;
+      overflow:hidden;
+      border: 1px solid rgba(0,0,0,.18);
+      background: rgba(255,255,255,.55);
       box-shadow: var(--shadow);
+    }
+    .cardVisual{
+      position:relative;
+      width:100%;
+      aspect-ratio: 16/10;
+      background:
+        url("assets/card-frame.png") center/cover no-repeat;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding: 22px;
-      overflow:hidden;
+      padding: 18px;
     }
-    .nightTitle{
-      font-weight: 1000;
-      font-size: 28px;
+    .cardText{
+      position:absolute;
+      inset: 14% 14% 18% 14%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       text-align:center;
+      font-weight: 900;
+      font-size: clamp(18px, 4.4vw, 34px);
       text-shadow: 0 2px 0 rgba(255,255,255,.65);
     }
-    .nightSub{
-      margin-top:8px;
-      font-weight: 900;
-      opacity:.85;
-      text-align:center;
-    }
-    .revealBadge{
-      position:absolute;
-      top:10px; right:10px;
-      background: rgba(0,0,0,.55);
-      color:#fff;
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-weight: 1000;
-      font-size: 13px;
+    .cardMeta{
+      display:flex;
+      gap:10px;
+      justify-content:space-between;
+      padding: 10px 12px;
+      font-weight: 750;
     }
 
-    .twoCol{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .small{ font-size: 13px; opacity:.78; font-weight:800; }
-    .muted{opacity:.75; font-weight:800}
-
+    /* Sticky action bar */
     .actionBar{
       position:fixed;
       left:0; right:0;
       bottom:0;
-      padding: 10px 12px calc(10px + var(--safeBottom)) 12px;
+      height: var(--stickyBarH);
+      padding: 12px 12px calc(12px + var(--safeBottom)) 12px;
+      background: linear-gradient(to top, rgba(0,0,0,.35), rgba(0,0,0,0));
+      pointer-events:none; /* important: allow clicks only on inner */
+    }
+    .actionInner{
+      pointer-events:auto;
+      max-width: 980px;
+      margin: 0 auto;
       display:grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      background: rgba(0,0,0,.18);
-      backdrop-filter: blur(6px);
-      z-index: 5;
+      gap: 12px;
     }
 
-    .overlay{
-      position:fixed; inset:0;
+    /* Buttons */
+    button{
+      border:0;
+      border-radius: 18px;
+      padding: 14px 14px;
+      font-size: 18px;
+      font-weight: 900;
+      color:#2b1d0e;
+      box-shadow: 0 10px 20px rgba(0,0,0,.25);
+      transform: translateY(0);
+      transition: transform .08s ease;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active{ transform: translateY(2px) scale(.99); }
+
+    .btnGold{ background: linear-gradient(#ffe7a8,#e7be57); }
+    .btnGreen{ background: linear-gradient(#9cf0a3,#3fcf59); }
+    .btnRed{ background: linear-gradient(#ffb0b0,#ff4b4b); }
+
+    /* Modal */
+    .modalBackdrop{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:flex-end;
+      justify-content:center;
+      padding: 12px 12px calc(12px + var(--safeBottom)) 12px;
+      z-index: 999;
+    }
+    .modal{
+      width: min(720px, 100%);
+      border-radius: 22px;
+      overflow:hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      background:
+        url("assets/paper.png") center/cover no-repeat,
+        rgba(255,255,255,.95);
+      border: 1px solid rgba(0,0,0,.18);
+      padding: 14px;
+    }
+    .modal h2{ margin: 0 0 10px 0; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input, select{
+      flex: 1 1 180px;
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(0,0,0,.2);
+      font-size: 16px;
+      background: rgba(255,255,255,.85);
+      font-weight: 650;
+    }
+    .smallBtn{
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .list{
+      margin-top: 12px;
+      background: rgba(255,255,255,.65);
+      border: 1px dashed rgba(0,0,0,.2);
+      border-radius: 16px;
+      padding: 10px;
+      min-height: 70px;
+    }
+    .tag{
+      display:inline-block;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.08);
+      margin: 6px 6px 0 0;
+      font-weight: 800;
+    }
+
+    /* Video overlay */
+    .videoOverlay{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.85);
       display:none;
       align-items:center;
       justify-content:center;
-      background: rgba(0,0,0,.45);
-      z-index: 20;
-      padding: 18px;
-    }
-    .modal{
-      width: min(560px, 96vw);
-      max-height: min(78vh, 720px);
-      overflow:auto;
-      border-radius: 18px;
-      background: rgba(255,255,255,.95);
-      box-shadow: 0 18px 40px rgba(0,0,0,.40);
-      border: 2px solid rgba(0,0,0,.15);
-    }
-    .modalHead{
-      padding: 12px 14px;
-      font-weight: 1000;
-      background: rgba(0,0,0,.06);
-      display:flex; justify-content:space-between; align-items:center;
-      position: sticky; top: 0;
-      z-index: 2;
-    }
-    .modalBody{ padding: 14px; }
-
-    .invGrid{ display:flex; flex-wrap:wrap; gap: 10px; }
-    .item{
-      display:flex; align-items:center; gap: 10px;
-      padding: 10px 12px;
-      border-radius: 16px;
-      background: rgba(255,255,255,.78);
-      border: 1px solid rgba(0,0,0,.10);
-      font-weight: 1000;
-      min-width: 150px;
-    }
-    .itemIcon{ font-size: 22px; }
-
-    select{
-      width: 100%;
+      z-index: 2000;
       padding: 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(0,0,0,.18);
-      background: rgba(255,255,255,.9);
-      font-weight: 900;
-      font-size: 16px;
     }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      background: rgba(0,0,0,.06);
-      font-weight: 900;
-      margin: 4px 6px 4px 0;
-      border: 1px solid rgba(0,0,0,.10);
-    }
-
-    #videoOverlay video{
-      width: min(760px, 98vw);
-      max-height: 72vh;
+    .videoOverlay video{
+      width: min(920px, 96vw);
+      max-height: 90vh;
       border-radius: 18px;
-      box-shadow: 0 18px 44px rgba(0,0,0,.55);
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
       background:#000;
+    }
+
+    /* Prevent super-tall feed pushing everything */
+    @media (min-width: 760px){
+      .actionInner{ grid-template-columns: repeat(4, 1fr); }
+      button{ font-size: 18px; }
     }
   </style>
 </head>
 
 <body>
-  <!-- START -->
-  <div class="wrap" id="startWrap">
-    <div class="card">
-      <div class="cardBody" id="startScreen">
-        <img id="logo" src="assets/logo.png" alt="Survival Challenge (by David Toma)" />
-        <p class="subtitle">Survival Challenge <span class="muted">(by David Toma)</span></p>
+  <div class="wrap" id="wrap">
 
-        <div class="row">
-          <input id="roomInput" type="text" maxlength="6" placeholder="ROOM" />
-          <button class="btnGold" id="joinBtn">Join / Create</button>
-        </div>
+    <!-- Logo -->
+    <div class="titleRow">
+      <img id="logo" src="assets/logo.png" alt="Survival Challenge" />
+    </div>
 
-        <div class="row">
-          <input id="nameInput" type="text" maxlength="12" placeholder="NAME" style="text-transform:none" />
-          <button class="btnGray" id="resetBtn">Reset ID</button>
-        </div>
-
-        <p class="small" style="max-width:560px;margin:8px auto 0;">
-          Max 4 players. First player becomes <b>Challenger</b>. Survivors must survive <b>7 nights</b>.
-          If <b>Fails</b> reaches 3 or all Survivors lose hearts, Challenger wins.
-        </p>
+    <!-- Start/join -->
+    <div class="panel" id="startPanel">
+      <div class="row">
+        <input id="roomInput" maxlength="6" placeholder="ROOM CODE (e.g. ABC123)" />
+        <button class="btnGreen smallBtn" id="joinBtn">Join / Create</button>
       </div>
+      <div style="margin-top:10px;font-weight:750;opacity:.8;">
+        First player becomes Challenger. Max 4 players.
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="panel" id="statusPanel" style="display:none;">
+      <div class="grid">
+        <div class="pill"><span class="muted">Phase</span><b id="uiPhase">lobby</b></div>
+        <div class="pill"><span class="muted">Role</span><b id="uiRole">—</b></div>
+
+        <div class="pill"><span class="muted">Night</span><b id="uiNight">0/7</b></div>
+        <div class="pill"><span class="muted">Fails</span><b id="uiFails">0/3</b></div>
+
+        <div class="pill"><span class="muted">Event</span><b id="uiEvent">—</b></div>
+        <div class="pill"><span class="muted">Timer</span><b id="uiTimer">—</b></div>
+
+        <div class="pill"><span class="muted">Supply</span><b id="uiSupply">—</b></div>
+        <div class="pill"><span class="muted">Power</span><b id="uiPower">—</b></div>
+
+        <div class="pill"><span class="muted">Hearts</span><b id="uiHearts">—</b></div>
+        <div class="pill"><span class="muted">Hunger</span><b id="uiHunger">—</b></div>
+
+        <div class="pill"><span class="muted">Players</span><b id="uiPlayers">0/4</b></div>
+        <div class="pill">
+          <span class="muted">Sound</span>
+          <button class="btnGold smallBtn" id="soundBtn" style="padding:10px 12px;border-radius:999px;">🔇</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <div class="panel" id="feedPanel" style="display:none;">
+      <h2 style="margin:0 0 10px 0;">Room Feed</h2>
+      <div class="feedBox" id="feedBox"></div>
+    </div>
+
+    <!-- Night Card -->
+    <div class="panel" id="nightPanel" style="display:none;">
+      <h2 style="margin:0 0 10px 0;">Night Card</h2>
+      <div class="cardStage">
+        <div class="cardVisual">
+          <div class="cardText" id="cardText">—</div>
+        </div>
+        <div class="cardMeta">
+          <span>Show: <b id="cardCountdown">—</b></span>
+          <span>Night: <b id="cardNight">0/7</b></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacer content so you can scroll past -->
+    <div style="height: 6px;"></div>
+  </div>
+
+  <!-- Sticky actions -->
+  <div class="actionBar" id="actionBar" style="display:none;">
+    <div class="actionInner">
+      <button class="btnGold" id="btnInventory">Inventory</button>
+      <button class="btnGold" id="btnTrade">Trade</button>
+      <button class="btnGreen" id="btnPlease">Please</button>
+      <button class="btnRed" id="btnStartNight">Start Night</button>
     </div>
   </div>
 
-  <!-- GAME -->
-  <div class="wrap" id="gameWrap" style="display:none">
-    <!-- HUD -->
-    <div class="card">
-      <div class="cardBody">
-        <div class="hudGrid">
-          <div class="stat"><span>Phase</span><span id="statPhase">—</span></div>
-          <div class="stat"><span>Role</span><span id="statRole">—</span></div>
-
-          <div class="stat"><span>Night</span><span id="statNight">0/7</span></div>
-          <div class="stat"><span>Fails</span><span id="statFails">0/3</span></div>
-
-          <div class="stat"><span>Event</span><span id="statEvent">—</span></div>
-          <div class="stat"><span>Timer</span><span id="statTimer">—</span></div>
-
-          <div class="stat"><span>Supply</span><span id="statSupply">—</span></div>
-          <div class="stat"><span>Power</span><span id="statPower">—</span></div>
-
-          <div class="stat"><span>Hearts</span><span id="statHearts">—</span></div>
-          <div class="stat"><span>Hunger</span><span id="statHunger">—</span></div>
-
-          <div class="stat"><span>Players</span><span id="statPlayers">—</span></div>
-          <div class="stat">
-            <span>Sound</span>
-            <span><button id="soundBtn" class="btnGray" style="padding:8px 12px;border-radius:14px">🔇</button></span>
-          </div>
-        </div>
-
-        <div class="small" style="margin-top:10px">
-          Room: <b id="roomLabel">—</b>
-        </div>
-      </div>
-    </div>
-
-    <!-- FEED (LIMIT 3) -->
-    <div class="card">
-      <div class="cardHeader">Room Feed</div>
-      <div class="cardBody">
-        <div id="feedBox"></div>
-      </div>
-    </div>
-
-    <!-- NIGHT CARD -->
-    <div class="card">
-      <div class="cardHeader">Night Card</div>
-      <div class="cardBody">
-        <div class="nightCard" id="nightCard">
-          <div class="revealBadge" id="revealBadge" style="display:none;">REVEAL: 3</div>
-          <div>
-            <div class="nightTitle" id="nightTitle">—</div>
-            <div class="nightSub" id="nightSub">Waiting…</div>
-          </div>
-        </div>
-
-        <div style="height:12px"></div>
-
-        <div class="twoCol">
-          <button class="btnGold" id="inventoryBtn">Inventory</button>
-          <button class="btnGold" id="tradeBtn">Trade</button>
-          <button class="btnGold" id="craftBtn">Craft</button>
-          <button class="btnGreen" id="pleaseBtn">Please</button>
-        </div>
-
-        <div style="height:10px"></div>
-
-        <div class="twoCol">
-          <button class="btnGreen" id="readyBtn">Ready</button>
-          <button class="btnRed" id="startNightBtn">Start Night</button>
-        </div>
-
-        <div style="height:10px"></div>
-
-        <div class="twoCol">
-          <button class="btnGold" id="roleActionBtn">Role Action</button>
-          <button class="btnGray" id="pickChallengeBtn">Pick Challenge</button>
-        </div>
-
-        <div class="small" style="margin-top:10px">
-          Challenger has no Hunger. Survivors lose Hunger each night (demo). Win at Night 7.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- STICKY ACTION BAR -->
-  <div class="actionBar" id="actionBar" style="display:none">
-    <button class="btnGold" id="barInv">Inventory</button>
-    <button class="btnGreen" id="barPlease">Please</button>
-  </div>
-
-  <!-- INVENTORY MODAL -->
-  <div class="overlay" id="invOverlay">
+  <!-- Inventory Modal -->
+  <div class="modalBackdrop" id="invBack">
     <div class="modal">
-      <div class="modalHead">
-        <div>Inventory</div>
-        <button class="btnGray" id="invClose">Close</button>
+      <h2>Inventory</h2>
+      <div class="row">
+        <input id="invAddInput" placeholder="e.g. Rope" />
+        <button class="btnGreen smallBtn" id="invAddBtn">Add</button>
+        <button class="btnRed smallBtn" id="invCloseBtn">Close</button>
       </div>
-      <div class="modalBody">
-        <div class="pill" id="stashPill" style="display:none;"></div>
-        <div class="invGrid" id="invGrid"></div>
-        <div style="height:10px"></div>
-        <div class="small">Items sync to Firebase.</div>
-      </div>
+      <div class="list" id="invList"></div>
     </div>
   </div>
 
-  <!-- TRADE MODAL -->
-  <div class="overlay" id="tradeOverlay">
+  <!-- Trade Modal -->
+  <div class="modalBackdrop" id="tradeBack">
     <div class="modal">
-      <div class="modalHead">
-        <div>Trade</div>
-        <button class="btnGray" id="tradeClose">Close</button>
+      <h2>Trade</h2>
+      <div class="row">
+        <select id="tradeGive"></select>
+        <select id="tradeWant"></select>
       </div>
-      <div class="modalBody">
-        <div class="small">Pick an item you offer, a player, and the item you want.</div>
-        <div style="height:10px"></div>
-
-        <div class="twoCol">
-          <div>
-            <div class="small">You offer</div>
-            <select id="tradeOfferSel"></select>
-          </div>
-          <div>
-            <div class="small">To player</div>
-            <select id="tradeToSel"></select>
-          </div>
-        </div>
-
-        <div style="height:10px"></div>
-
-        <div>
-          <div class="small">You want from them</div>
-          <select id="tradeWantSel"></select>
-        </div>
-
-        <div style="height:12px"></div>
-        <button class="btnGreen" id="tradeSendBtn">Send Trade Request</button>
-
-        <div style="height:14px"></div>
-        <div class="card" style="box-shadow:none;border-radius:14px">
-          <div class="cardHeader" style="font-size:16px">Incoming Trades</div>
-          <div class="cardBody" id="tradeInbox"></div>
-        </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btnGreen smallBtn" id="tradeSendBtn">Send Offer</button>
+        <button class="btnRed smallBtn" id="tradeCloseBtn">Close</button>
       </div>
+      <div class="list" id="tradeInfo"></div>
     </div>
   </div>
 
-  <!-- PLEASE MODAL -->
-  <div class="overlay" id="pleaseOverlay">
+  <!-- Please Modal -->
+  <div class="modalBackdrop" id="pleaseBack">
     <div class="modal">
-      <div class="modalHead">
-        <div>Please</div>
-        <button class="btnGray" id="pleaseClose">Close</button>
+      <h2>Please (Survivor)</h2>
+      <div class="row">
+        <select id="pleaseType">
+          <option value="item">Item</option>
+          <option value="heal">Heal</option>
+          <option value="skip">Skip Fail</option>
+        </select>
+        <select id="pleaseCost">
+          <option value="1">Cost 1 Supply</option>
+          <option value="2">Cost 2 Supply</option>
+        </select>
       </div>
-      <div class="modalBody" id="pleaseBody"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btnGreen smallBtn" id="pleaseSendBtn">Send Request</button>
+        <button class="btnRed smallBtn" id="pleaseCloseBtn">Close</button>
+      </div>
+      <div class="list" id="pleaseInfo"></div>
+      <div style="margin-top:10px;font-weight:700;opacity:.8;">
+        Challenger will approve/deny (auto demo logic).
+      </div>
     </div>
   </div>
 
-  <!-- VIDEO OVERLAY -->
-  <div class="overlay" id="videoOverlay">
-    <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
-      <video id="videoEl" playsinline></video>
-      <button class="btnGray" id="videoClose">Close</button>
-    </div>
+  <!-- Video overlays -->
+  <div class="videoOverlay" id="videoOverlay">
+    <video id="videoEl" playsinline></video>
   </div>
+
+  <!-- Audio -->
+  <audio id="bgm" src="assets/survival.mp3" loop preload="auto"></audio>
 
   <script>
-    /* ============================
-      FIREBASE CONFIG (YOUR REAL ONE)
-      IMPORTANT: databaseURL MUST be RTDB URL
-    ============================ */
+    // ======== Mobile-visible error reporting (leave ON until stable) ========
+    window.addEventListener("error", (e) => {
+      alert("JS ERROR: " + (e.message || e.error));
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+      alert("PROMISE ERROR: " + (e.reason?.message || e.reason));
+    });
+
+    // ======== Firebase config (YOUR REAL VALUES) ========
     const firebaseConfig = {
       apiKey: "AIzaSyD6T_zbq3-fhN10aCF9zZtWJxV0eMg8fZQ",
       authDomain: "survivalchallengedt.firebaseapp.com",
@@ -484,778 +435,215 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    /* ============================
-      CONSTANTS
-    ============================ */
-    const MAX_PLAYERS = 4;
-    const MAX_NIGHTS  = 7;
-    const MAX_FAILS   = 3;
-    const MAX_HEARTS  = 3;
+    // ======== Helpers ========
+    const $ = (id) => document.getElementById(id);
+    const now = () => Date.now();
 
-    const ITEM_DB = [
-      { key:"rope",  name:"Rope",  icon:"🪢" },
-      { key:"torch", name:"Torch", icon:"🔥" },
-      { key:"berry", name:"Berry", icon:"🫐" },
-      { key:"trap",  name:"Trap",  icon:"🪤" },
-      { key:"wood",  name:"Wood",  icon:"🪵" },
-      { key:"stone", name:"Stone", icon:"🪨" },
-      { key:"water", name:"Water", icon:"💧" },
-      { key:"herb",  name:"Herb",  icon:"🌿" }
-    ];
-
-    const STARTER_ITEMS_SURVIVOR = [
-      { key:"rope", qty:1 },
-      { key:"torch", qty:1 },
-      { key:"berry", qty:2 }
-    ];
-
-    // Challenger stash (shared pool used for Please ITEM)
-    const DEFAULT_STASH = { rope:2, torch:2, berry:4, herb:2, wood:3, stone:2, water:3, trap:1 };
-
-    const CHALLENGES = [
-      { title:"Bear Attack", sub:"Lose 1 heart unless protected." },
-      { title:"Cold Night", sub:"Spend 1 Torch or lose 1 heart." },
-      { title:"Food Shortage", sub:"Lose 15 hunger (Survivors)." },
-      { title:"Snake Bite", sub:"Need Herb or lose 1 heart." },
-      { title:"Storm", sub:"Fail +1 unless someone uses Rope." },
-      { title:"Lucky Find", sub:"Challenger may add 1 item to stash." }
-    ];
-
-    function $(id){ return document.getElementById(id); }
-    function now(){ return Date.now(); }
-    function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-    function heartsStr(n){ return "❤️".repeat(Math.max(0,n||0)); }
-    function itemMeta(key){ return ITEM_DB.find(x=>x.key===key) || {key, name:key, icon:"📦"}; }
-
-    function invToArray(invObj){
-      const inv = invObj || {};
-      const arr = [];
-      for(const k of Object.keys(inv)){
-        const qty = inv[k] || 0;
-        if(qty>0) arr.push({ key:k, qty });
-      }
-      arr.sort((a,b)=>a.key.localeCompare(b.key));
-      return arr;
+    function randId(len=8){
+      return Math.random().toString(36).slice(2,2+len);
     }
 
-    /* ============================
-      ID
-    ============================ */
+    // Persistent player id
     let myId = localStorage.getItem("sc_myId");
     if(!myId){
-      myId = Math.random().toString(36).slice(2,10);
+      myId = randId(10);
       localStorage.setItem("sc_myId", myId);
     }
 
-    let currentRoom = null;
-    let roomState = null;
-    let playersState = {};
-    let me = null;
+    let roomCode = null;
     let isChallenger = false;
+    let unsub = null;
 
-    /* ============================
-      AUDIO (MP3)
-      Challenger toggles global musicOn (no feed spam)
-    ============================ */
-    const audio = new Audio("assets/survival.mp3");
-    audio.loop = true;
+    // ======== UI State ========
+    const state = {
+      phase: "lobby",
+      night: 0,
+      maxNights: 7,
+      fails: 0,
+      maxFails: 3,
+      event: "—",
+      timer: "—",
+      supply: 0,
+      power: 0,
+      hearts: 0,
+      hunger: "—",
+      playersCount: 0,
+      cardText: "—",
+      cardCountdown: "—"
+    };
 
-    async function applyRoomSound(){
-      if(!roomState) return;
-      const on = !!roomState.musicOn;
-      const vol = clamp(roomState.musicVol ?? 0.65, 0, 1);
-      audio.volume = vol;
+    // ======== Audio ========
+    const bgm = $("bgm");
+    let soundOn = false;
+
+    function setSound(on){
+      soundOn = on;
       $("soundBtn").textContent = on ? "🔊" : "🔇";
       if(on){
-        try{ await audio.play(); }catch(e){}
+        bgm.volume = 0.7;
+        bgm.play().catch(()=>{});
       }else{
-        audio.pause();
+        bgm.pause();
       }
     }
-
-    $("soundBtn").onclick = async ()=>{
-      if(!currentRoom || !roomState) return;
-      if(!isChallenger){
-        // non-challenger local toggle only (no db, no feed)
-        const isOn = !audio.paused;
-        if(isOn){ audio.pause(); $("soundBtn").textContent="🔇"; }
-        else { try{ await audio.play(); $("soundBtn").textContent="🔊"; }catch(e){} }
-        return;
-      }
-      await db.ref(`rooms/${currentRoom}/musicOn`).set(!roomState.musicOn);
+    $("soundBtn").onclick = () => {
+      setSound(!soundOn);
+      pushFeed(soundOn ? "Sound ON." : "Sound OFF.");
     };
 
-    /* ============================
-      VIDEO (Intro + Win/Lose)
-      Uses files if you upload them:
-      assets/intro-challenger.mp4
-      assets/intro-survivor.mp4
-      assets/win.mp4
-      assets/lose.mp4
-    ============================ */
-    function playVideo(file){
-      const overlay = $("videoOverlay");
+    // ======== Video ========
+    function playVideo(src){
+      const ov = $("videoOverlay");
       const v = $("videoEl");
-      v.src = file;
-      v.autoplay = true;
-      v.loop = true;
+      v.src = src;
+      v.currentTime = 0;
       v.muted = false;
-      v.play().then(()=>{
-        overlay.style.display="flex";
-      }).catch(()=>{
-        // if file missing or blocked, just ignore
-      });
+      ov.style.display = "flex";
+      v.play().catch(()=>{});
+      v.onended = () => {
+        ov.style.display = "none";
+        v.src = "";
+      };
+      ov.onclick = () => {
+        ov.style.display = "none";
+        v.pause();
+        v.src = "";
+      };
     }
-    $("videoClose").onclick = ()=>{
-      $("videoOverlay").style.display="none";
-      const v=$("videoEl");
-      v.pause(); v.src="";
-    };
 
-    /* ============================
-      FEED (hard limit 3)
-    ============================ */
-    async function pushFeed(msg){
-      if(!currentRoom) return;
-      const ref = db.ref(`rooms/${currentRoom}/feed`).push();
-      await ref.set({ msg, ts: now() });
-    }
+    // ======== Feed (limit 3) ========
     function renderFeed(lines){
       const box = $("feedBox");
       box.innerHTML = "";
-      const last3 = (lines || []).slice(-3);
-      last3.forEach(m=>{
-        const d = document.createElement("div");
-        d.className = "feedLine";
-        d.textContent = m;
-        box.appendChild(d);
-      });
-    }
-    function listenFeed(){
-      db.ref(`rooms/${currentRoom}/feed`).orderByChild("ts").limitToLast(3).on("value", snap=>{
-        const obj = snap.val() || {};
-        const arr = Object.values(obj).sort((a,b)=>(a.ts||0)-(b.ts||0)).map(x=>x.msg);
-        renderFeed(arr);
+      (lines || []).slice(-3).forEach(t => {
+        const div = document.createElement("div");
+        div.className = "feedLine";
+        div.textContent = t;
+        box.appendChild(div);
       });
     }
 
-    /* ============================
-      NIGHT CARD TIMER (3 seconds reveal)
-      room.reveal = { title, sub, untilTs }
-      Clients show if now < untilTs
-    ============================ */
-    let revealInterval = null;
+    async function pushFeed(text){
+      if(!roomCode) return;
+      const ref = db.ref(`rooms/${roomCode}/feed`);
+      const snap = await ref.get();
+      const arr = snap.exists() ? (snap.val() || []) : [];
+      const next = [...arr, text].slice(-3);
+      await ref.set(next);
+    }
 
-    function updateRevealUI(){
-      const r = roomState?.reveal;
-      const badge = $("revealBadge");
+    // ======== Default items ========
+    const START_ITEMS = ["Rope", "Torch", "Berries"];
+    const ALL_ITEMS = ["Rope","Torch","Berries","Trap","Bandage","Water","Wood","Stone","Spear"];
 
-      if(!r || !r.untilTs){
-        badge.style.display="none";
-        $("statTimer").textContent = "—";
-        // if no active reveal, show last challenge (non-timed info)
-        $("nightTitle").textContent = roomState?.eventText || "—";
-        $("nightSub").textContent = roomState?.challengeSub || (isChallenger ? "Pick or start a night." : "Waiting for Challenger.");
+    function renderInv(items){
+      const box = $("invList");
+      box.innerHTML = "";
+      const arr = items || [];
+      if(arr.length === 0){
+        box.textContent = "Empty inventory.";
         return;
       }
-
-      const msLeft = r.untilTs - now();
-      if(msLeft <= 0){
-        // hide reveal
-        badge.style.display="none";
-        $("statTimer").textContent = "—";
-        // after reveal ends, show neutral
-        $("nightTitle").textContent = "—";
-        $("nightSub").textContent = "Reveal ended.";
-        return;
-      }
-
-      const sec = Math.ceil(msLeft/1000);
-      badge.style.display="block";
-      badge.textContent = `REVEAL: ${sec}`;
-      $("statTimer").textContent = `${sec}s`;
-
-      // show reveal card
-      $("nightTitle").textContent = r.title || "—";
-      $("nightSub").textContent = r.sub || "";
-    }
-
-    function startRevealTick(){
-      if(revealInterval) clearInterval(revealInterval);
-      revealInterval = setInterval(updateRevealUI, 120);
-    }
-
-    async function startNight(){
-      if(!isChallenger) return alert("Only Challenger can start night.");
-      if(!roomState) return;
-
-      const night = roomState.night ?? 0;
-      if(night >= MAX_NIGHTS) return;
-
-      const ch = CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
-      const until = now() + 3000;
-
-      const updates = {};
-      updates[`rooms/${currentRoom}/phase`] = "night";
-      updates[`rooms/${currentRoom}/night`] = night + 1;
-      updates[`rooms/${currentRoom}/eventText`] = ch.title;
-      updates[`rooms/${currentRoom}/challengeSub`] = ch.sub;
-      updates[`rooms/${currentRoom}/reveal`] = { title: ch.title, sub: ch.sub, untilTs: until };
-
-      // demo: hunger drain + starvation heart loss for survivors
-      Object.values(playersState).forEach(p=>{
-        if(p.role==="Challenger") return;
-        const h = p.hunger ?? 70;
-        const newH = clamp(h - 10, 0, 70);
-        updates[`rooms/${currentRoom}/players/${p.id}/hunger`] = newH;
-        if(newH <= 0){
-          const hearts = p.hearts ?? MAX_HEARTS;
-          updates[`rooms/${currentRoom}/players/${p.id}/hearts`] = clamp(hearts - 1, 0, MAX_HEARTS);
-        }
+      arr.forEach(it => {
+        const s = document.createElement("span");
+        s.className = "tag";
+        s.textContent = it;
+        box.appendChild(s);
       });
+    }
 
-      await db.ref().update(updates);
-      await pushFeed(`Night ${night+1}: ${ch.title}`);
+    function fillSelect(sel, items){
+      sel.innerHTML = "";
+      items.forEach(it=>{
+        const o = document.createElement("option");
+        o.value = it;
+        o.textContent = it;
+        sel.appendChild(o);
+      });
+    }
 
-      // auto clear reveal object after it ends (so old phones don't keep it)
-      setTimeout(async ()=>{
-        try{
-          const cur = (await db.ref(`rooms/${currentRoom}/reveal/untilTs`).get()).val();
-          if(cur && cur <= now()){
-            await db.ref(`rooms/${currentRoom}/reveal`).remove();
+    // ======== Room listener ========
+    function applyUI(room){
+      const players = room.players || {};
+      const me = players[myId];
+
+      state.phase = room.phase || "lobby";
+      state.night = room.night || 0;
+      state.fails = room.fails || 0;
+      state.event = room.event || "—";
+      state.timer = room.timerText || "—";
+      state.playersCount = Object.keys(players).length;
+
+      isChallenger = (room.challengerId === myId);
+
+      state.supply = isChallenger ? (room.challengerSupply ?? 0) : (me?.supply ?? 0);
+      state.power  = isChallenger ? (room.challengerPower  ?? 0) : (me?.power  ?? 0);
+
+      state.hearts = me?.hearts ?? 0;
+      state.hunger = isChallenger ? "—" : (me?.hunger ?? 0);
+
+      // Night card view
+      state.cardText = room.currentCard?.text || "—";
+      state.cardCountdown = room.currentCard?.showUntil ? Math.max(0, Math.ceil((room.currentCard.showUntil - now())/1000)) + "s" : "—";
+
+      // UI text
+      $("uiPhase").textContent = state.phase;
+      $("uiRole").textContent = isChallenger ? "Challenger" : "Survivor";
+      $("uiNight").textContent = `${state.night}/${state.maxNights}`;
+      $("uiFails").textContent = `${state.fails}/${state.maxFails}`;
+      $("uiEvent").textContent = state.event;
+      $("uiTimer").textContent = state.timer;
+
+      $("uiSupply").textContent = state.supply;
+      $("uiPower").textContent = state.power;
+
+      $("uiHearts").textContent = "❤️".repeat(state.hearts || 0);
+      $("uiHunger").textContent = state.hunger;
+      $("uiPlayers").textContent = `${state.playersCount}/4`;
+
+      $("cardText").textContent = state.cardText;
+      $("cardCountdown").textContent = state.cardCountdown;
+      $("cardNight").textContent = `${state.night}/${state.maxNights}`;
+
+      renderFeed(room.feed || []);
+
+      renderInv(me?.inventory || []);
+      fillSelect($("tradeGive"), (me?.inventory || ["(empty)"]));
+      fillSelect($("tradeWant"), ALL_ITEMS);
+
+      // Show panels when in room
+      $("statusPanel").style.display = "block";
+      $("feedPanel").style.display = "block";
+      $("nightPanel").style.display = "block";
+      $("actionBar").style.display = "block";
+    }
+
+    function listenRoom(){
+      if(unsub) unsub();
+      const ref = db.ref(`rooms/${roomCode}`);
+      const cb = (snap)=>{
+        const room = snap.val();
+        if(!room) return;
+        applyUI(room);
+
+        // Auto win/lose checks
+        if(room.gameOver?.ended){
+          if(room.gameOver.type === "WIN"){
+            playVideo("assets/win.mp4");
           }
-        }catch(e){}
-      }, 3400);
-
-      checkWinLose();
-    }
-
-    /* ============================
-      WIN / LOSE
-    ============================ */
-    async function endGame(winner){
-      if(roomState?.phase==="ended") return;
-      await db.ref().update({
-        [`rooms/${currentRoom}/phase`]: "ended",
-        [`rooms/${currentRoom}/winner`]: winner
-      });
-      await pushFeed(`Game ended. Winner: ${winner.toUpperCase()}`);
-    }
-
-    function checkWinLose(){
-      if(!roomState) return;
-      const night = roomState.night ?? 0;
-      const fails = roomState.fails ?? 0;
-
-      const surv = Object.values(playersState).filter(p=>p.role!=="Challenger");
-      if(fails >= MAX_FAILS) return endGame("challenger");
-      if(surv.length > 0 && surv.every(p=>(p.hearts||0)<=0)) return endGame("challenger");
-
-      if(night >= MAX_NIGHTS){
-        if(surv.some(p=>(p.hearts||0)>0)) endGame("survivors");
-        else endGame("challenger");
-      }
-    }
-
-    function handleEndUI(){
-      const winner = roomState?.winner;
-      if(!winner) return;
-      // Keep MP3 playing (user request)
-      if(winner==="survivors") playVideo("assets/win.mp4");
-      else playVideo("assets/lose.mp4");
-    }
-
-    /* ============================
-      INVENTORY
-    ============================ */
-    function renderInventory(){
-      const inv = me?.inventory || {};
-      const grid = $("invGrid");
-      grid.innerHTML = "";
-
-      // show stash pill for Challenger
-      const stashPill = $("stashPill");
-      if(isChallenger){
-        const stash = roomState?.stash || {};
-        const total = Object.values(stash).reduce((a,b)=>a+(b||0),0);
-        stashPill.style.display="inline-flex";
-        stashPill.textContent = `Stash items: ${total}`;
-      }else{
-        stashPill.style.display="none";
-      }
-
-      const arr = invToArray(inv);
-      if(arr.length===0){
-        const d=document.createElement("div");
-        d.className="muted";
-        d.textContent="Empty inventory.";
-        grid.appendChild(d);
-        return;
-      }
-
-      arr.forEach(it=>{
-        const meta=itemMeta(it.key);
-        const el=document.createElement("div");
-        el.className="item";
-        el.innerHTML = `<span class="itemIcon">${meta.icon}</span><span>${meta.name}</span><span class="muted">x${it.qty}</span>`;
-        grid.appendChild(el);
-      });
-    }
-
-    /* ============================
-      TRADE (real request -> accept/decline)
-    ============================ */
-    function fillTradeSelectors(){
-      const offerSel = $("tradeOfferSel");
-      const toSel = $("tradeToSel");
-      const wantSel = $("tradeWantSel");
-
-      offerSel.innerHTML="";
-      const myArr = invToArray(me?.inventory);
-      if(!myArr.length){
-        const op=document.createElement("option");
-        op.value=""; op.textContent="(No items)";
-        offerSel.appendChild(op);
-      }else{
-        myArr.forEach(it=>{
-          const meta=itemMeta(it.key);
-          const op=document.createElement("option");
-          op.value=it.key;
-          op.textContent=`${meta.icon} ${meta.name} (x${it.qty})`;
-          offerSel.appendChild(op);
-        });
-      }
-
-      toSel.innerHTML="";
-      Object.values(playersState).forEach(p=>{
-        if(p.id===myId) return;
-        const op=document.createElement("option");
-        op.value=p.id;
-        op.textContent=p.name;
-        toSel.appendChild(op);
-      });
-      if(toSel.options.length && !toSel.value) toSel.value = toSel.options[0].value;
-
-      function refreshWant(){
-        const pid = toSel.value;
-        const p = playersState[pid];
-        wantSel.innerHTML="";
-        const arr = invToArray(p?.inventory);
-        if(!arr.length){
-          const op=document.createElement("option");
-          op.value=""; op.textContent="(They have no items)";
-          wantSel.appendChild(op);
-          return;
+          if(room.gameOver.type === "LOSE"){
+            // optional: add lose.mp4 later
+          }
         }
-        arr.forEach(it=>{
-          const meta=itemMeta(it.key);
-          const op=document.createElement("option");
-          op.value=it.key;
-          op.textContent=`${meta.icon} ${meta.name} (x${it.qty})`;
-          wantSel.appendChild(op);
-        });
-      }
-      toSel.onchange = refreshWant;
-      refreshWant();
+      };
+      ref.on("value", cb);
+      unsub = ()=> ref.off("value", cb);
     }
 
-    $("tradeSendBtn").onclick = async ()=>{
-      const offer = $("tradeOfferSel").value;
-      const to = $("tradeToSel").value;
-      const want = $("tradeWantSel").value;
-      if(!offer || !to || !want) return alert("Select items and player.");
-      const ref = db.ref(`rooms/${currentRoom}/trades`).push();
-      await ref.set({ from: myId, to, offer, want, ts: now() });
-      await pushFeed(`${playersState[myId].name} sent a trade.`);
-    };
-
-    function listenTrades(){
-      db.ref(`rooms/${currentRoom}/trades`).orderByChild("to").equalTo(myId).on("value", snap=>{
-        const obj = snap.val() || {};
-        const trades = Object.entries(obj).map(([id,t])=>({id,...t})).sort((a,b)=>(a.ts||0)-(b.ts||0));
-        const box = $("tradeInbox");
-        box.innerHTML="";
-
-        if(!trades.length){
-          box.innerHTML = `<div class="muted">No incoming trades.</div>`;
-          return;
-        }
-
-        trades.forEach(t=>{
-          const fromName = playersState[t.from]?.name || t.from;
-          const offer = itemMeta(t.offer);
-          const want = itemMeta(t.want);
-
-          const wrap=document.createElement("div");
-          wrap.style.display="flex";
-          wrap.style.flexDirection="column";
-          wrap.style.gap="8px";
-          wrap.style.padding="10px 12px";
-          wrap.style.borderRadius="14px";
-          wrap.style.background="rgba(255,255,255,.78)";
-          wrap.style.border="1px solid rgba(0,0,0,.10)";
-          wrap.style.marginBottom="10px";
-
-          wrap.innerHTML = `<div style="font-weight:1000">${fromName} offers <b>${offer.icon} ${offer.name}</b> for your <b>${want.icon} ${want.name}</b></div>`;
-
-          const row=document.createElement("div");
-          row.style.display="flex";
-          row.style.gap="10px";
-
-          const acc=document.createElement("button");
-          acc.className="btnGreen";
-          acc.textContent="Accept";
-          acc.onclick = ()=>acceptTrade(t.id);
-
-          const dec=document.createElement("button");
-          dec.className="btnRed";
-          dec.textContent="Decline";
-          dec.onclick = ()=>db.ref(`rooms/${currentRoom}/trades/${t.id}`).remove();
-
-          row.appendChild(acc); row.appendChild(dec);
-          wrap.appendChild(row);
-          box.appendChild(wrap);
-        });
-      });
-    }
-
-    async function acceptTrade(tradeId){
-      // re-read latest trade + inventories (so swap can't break)
-      const tradeSnap = await db.ref(`rooms/${currentRoom}/trades/${tradeId}`).get();
-      if(!tradeSnap.exists()) return;
-
-      const t = tradeSnap.val();
-      const fromId = t.from;
-      const toId = t.to;
-
-      const roomSnap = await db.ref(`rooms/${currentRoom}`).get();
-      if(!roomSnap.exists()) return;
-
-      const rs = roomSnap.val();
-      const fromInv = rs.players?.[fromId]?.inventory || {};
-      const toInv   = rs.players?.[toId]?.inventory || {};
-
-      if((fromInv[t.offer]||0) <= 0) return alert("Trade invalid (offer missing).");
-      if((toInv[t.want]||0) <= 0)   return alert("Trade invalid (want missing).");
-
-      const updates = {};
-      updates[`rooms/${currentRoom}/players/${fromId}/inventory/${t.offer}`] = (fromInv[t.offer]||0) - 1;
-      updates[`rooms/${currentRoom}/players/${toId}/inventory/${t.offer}`]   = (toInv[t.offer]||0) + 1;
-
-      updates[`rooms/${currentRoom}/players/${toId}/inventory/${t.want}`]    = (toInv[t.want]||0) - 1;
-      updates[`rooms/${currentRoom}/players/${fromId}/inventory/${t.want}`]  = (fromInv[t.want]||0) + 1;
-
-      updates[`rooms/${currentRoom}/trades/${tradeId}`] = null;
-
-      await db.ref().update(updates);
-      await pushFeed(`${playersState[myId].name} accepted a trade.`);
-    }
-
-    /* ============================
-      PLEASE (3 options) + Challenger costs 1-2 supply
-      PLEASE ITEM takes from room.stash (not free)
-    ============================ */
-    function renderPleaseModal(){
-      const body = $("pleaseBody");
-      body.innerHTML = "";
-
-      const supply = roomState?.supply ?? 0;
-      const costs = roomState?.pleaseCosts || { item:1, heal:1, skip:1 };
-      const stash = roomState?.stash || {};
-
-      if(isChallenger){
-        body.innerHTML = `
-          <div class="pill">Supply: <b>${supply}</b></div>
-          <div class="pill">Stash: <b>${Object.values(stash).reduce((a,b)=>a+(b||0),0)}</b></div>
-          <div style="height:10px"></div>
-          <div class="twoCol">
-            <div>
-              <div class="small">Item cost</div>
-              <select id="cItem"><option value="1">1</option><option value="2">2</option></select>
-            </div>
-            <div>
-              <div class="small">Heal cost</div>
-              <select id="cHeal"><option value="1">1</option><option value="2">2</option></select>
-            </div>
-            <div>
-              <div class="small">Skip Fail cost</div>
-              <select id="cSkip"><option value="1">1</option><option value="2">2</option></select>
-            </div>
-            <div style="display:flex;align-items:end">
-              <button class="btnGold" id="saveCosts">Save</button>
-            </div>
-          </div>
-
-          <div style="height:14px"></div>
-          <div class="card" style="box-shadow:none;border-radius:14px">
-            <div class="cardHeader" style="font-size:16px">Requests</div>
-            <div class="cardBody" id="pleaseInbox"></div>
-          </div>
-        `;
-
-        $("cItem").value = String(costs.item ?? 1);
-        $("cHeal").value = String(costs.heal ?? 1);
-        $("cSkip").value = String(costs.skip ?? 1);
-
-        $("saveCosts").onclick = async ()=>{
-          await db.ref(`rooms/${currentRoom}/pleaseCosts`).set({
-            item: Number($("cItem").value),
-            heal: Number($("cHeal").value),
-            skip: Number($("cSkip").value),
-          });
-          await pushFeed(`Challenger updated Please costs.`);
-        };
-
-        // inbox filled by listener
-        return;
-      }
-
-      // Survivor UI
-      const top = document.createElement("div");
-      top.innerHTML = `
-        <div class="pill">Challenger Supply: <b>${supply}</b></div>
-        <div class="pill">Costs: item ${costs.item} / heal ${costs.heal} / skip ${costs.skip}</div>
-        <div class="small" style="margin-top:8px">Choose one. Challenger approves (pays supply). Item comes from Challenger stash.</div>
-      `;
-      body.appendChild(top);
-
-      const opts = document.createElement("div");
-      opts.style.display="grid";
-      opts.style.gridTemplateColumns="1fr";
-      opts.style.gap="10px";
-      opts.style.marginTop="12px";
-
-      const b1=document.createElement("button");
-      b1.className="btnGold";
-      b1.textContent = `Request ITEM from stash (cost ${costs.item})`;
-      b1.onclick = ()=>sendPlease("item");
-
-      const b2=document.createElement("button");
-      b2.className="btnGold";
-      b2.textContent = `Request HEAL +1 ❤️ (cost ${costs.heal})`;
-      b2.onclick = ()=>sendPlease("heal");
-
-      const b3=document.createElement("button");
-      b3.className="btnGold";
-      b3.textContent = `Request SKIP FAIL -1 (cost ${costs.skip})`;
-      b3.onclick = ()=>sendPlease("skip");
-
-      opts.appendChild(b1); opts.appendChild(b2); opts.appendChild(b3);
-      body.appendChild(opts);
-    }
-
-    async function sendPlease(type){
-      await db.ref(`rooms/${currentRoom}/pleaseRequests/${myId}`).set({
-        from: myId, type, ts: now()
-      });
-      await pushFeed(`${playersState[myId].name} requested Please (${type}).`);
-      $("pleaseOverlay").style.display="none";
-    }
-
-    function listenPleaseInbox(){
-      db.ref(`rooms/${currentRoom}/pleaseRequests`).on("value", snap=>{
-        if(!isChallenger) return;
-        const obj = snap.val() || {};
-        const box = $("pleaseInbox");
-        if(!box) return;
-
-        const reqs = Object.values(obj).sort((a,b)=>(a.ts||0)-(b.ts||0));
-        if(!reqs.length){
-          box.innerHTML = `<div class="muted">No requests.</div>`;
-          return;
-        }
-
-        const costs = roomState?.pleaseCosts || { item:1, heal:1, skip:1 };
-        box.innerHTML = "";
-
-        reqs.forEach(r=>{
-          const name = playersState[r.from]?.name || r.from;
-          const cost = (r.type==="item") ? costs.item : (r.type==="heal") ? costs.heal : costs.skip;
-
-          const wrap=document.createElement("div");
-          wrap.style.display="flex";
-          wrap.style.flexDirection="column";
-          wrap.style.gap="8px";
-          wrap.style.padding="10px 12px";
-          wrap.style.borderRadius="14px";
-          wrap.style.background="rgba(255,255,255,.78)";
-          wrap.style.border="1px solid rgba(0,0,0,.10)";
-          wrap.style.marginBottom="10px";
-          wrap.innerHTML = `<div style="font-weight:1000">${name} asks: <b>${r.type.toUpperCase()}</b> (cost ${cost})</div>`;
-
-          const row=document.createElement("div");
-          row.style.display="flex";
-          row.style.gap="10px";
-
-          const ok=document.createElement("button");
-          ok.className="btnGreen";
-          ok.textContent="Approve";
-          ok.onclick = ()=>approvePlease(r.from, r.type, cost);
-
-          const no=document.createElement("button");
-          no.className="btnRed";
-          no.textContent="Deny";
-          no.onclick = ()=>db.ref(`rooms/${currentRoom}/pleaseRequests/${r.from}`).remove();
-
-          row.appendChild(ok); row.appendChild(no);
-          wrap.appendChild(row);
-          box.appendChild(wrap);
-        });
-      });
-    }
-
-    async function approvePlease(pid, type, cost){
-      // re-read latest room to avoid stale stash/supply
-      const roomSnap = await db.ref(`rooms/${currentRoom}`).get();
-      if(!roomSnap.exists()) return;
-      const rs = roomSnap.val();
-
-      const supply = rs.supply ?? 0;
-      const fails  = rs.fails ?? 0;
-      const stash  = rs.stash || {};
-      const p      = rs.players?.[pid];
-
-      if(!p) return;
-      if(supply < cost) return alert("Not enough Supply.");
-
-      const updates = {};
-      updates[`rooms/${currentRoom}/supply`] = supply - cost;
-
-      if(type==="item"){
-        // pick from stash only
-        const stashKeys = Object.keys(stash).filter(k=>(stash[k]||0)>0);
-        if(!stashKeys.length){
-          alert("Stash is empty. Can't give item.");
-          return;
-        }
-        // choose random available stash item
-        const pick = stashKeys[Math.floor(Math.random()*stashKeys.length)];
-        const curSt = stash[pick] || 0;
-        const curInv = p.inventory?.[pick] || 0;
-
-        updates[`rooms/${currentRoom}/stash/${pick}`] = curSt - 1;
-        updates[`rooms/${currentRoom}/players/${pid}/inventory/${pick}`] = curInv + 1;
-      }
-
-      if(type==="heal"){
-        const cur = p.hearts ?? MAX_HEARTS;
-        updates[`rooms/${currentRoom}/players/${pid}/hearts`] = clamp(cur + 1, 0, MAX_HEARTS);
-      }
-
-      if(type==="skip"){
-        updates[`rooms/${currentRoom}/fails`] = Math.max(0, fails - 1);
-      }
-
-      updates[`rooms/${currentRoom}/pleaseRequests/${pid}`] = null;
-
-      await db.ref().update(updates);
-      await pushFeed(`Challenger approved Please for ${playersState[pid]?.name || pid}.`);
-      checkWinLose();
-    }
-
-    /* ============================
-      ROLE ACTION + PICK CHALLENGE
-    ============================ */
-    async function roleAction(){
-      if(!roomState) return;
-
-      if(isChallenger){
-        const power = roomState.power ?? 0;
-        if(power<=0) return alert("No Power.");
-        await db.ref().update({
-          [`rooms/${currentRoom}/power`]: power - 1,
-          [`rooms/${currentRoom}/fails`]: (roomState.fails ?? 0) + 1
-        });
-        await pushFeed("Challenger used Power: +1 Fail.");
-        checkWinLose();
-        return;
-      }
-
-      // Survivor demo: consume first item to -1 fail
-      const inv = me?.inventory || {};
-      const keys = Object.keys(inv).filter(k=>(inv[k]||0)>0);
-      if(!keys.length) return alert("No items to use.");
-      const use = keys[0];
-      const cur = inv[use] || 0;
-      const fails = roomState.fails ?? 0;
-
-      await db.ref().update({
-        [`rooms/${currentRoom}/players/${myId}/inventory/${use}`]: cur - 1,
-        [`rooms/${currentRoom}/fails`]: Math.max(0, fails - 1)
-      });
-      await pushFeed(`${playersState[myId].name} used ${itemMeta(use).name}: -1 Fail.`);
-      checkWinLose();
-    }
-
-    async function pickChallenge(){
-      if(!isChallenger) return alert("Only Challenger can pick challenge.");
-      const ch = CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
-      await db.ref().update({
-        [`rooms/${currentRoom}/eventText`]: ch.title,
-        [`rooms/${currentRoom}/challengeSub`]: ch.sub
-      });
-      await pushFeed("Challenger picked a new challenge.");
-    }
-
-    /* ============================
-      UI
-    ============================ */
-    function openModal(id){ $(id).style.display="flex"; }
-    function closeModal(id){ $(id).style.display="none"; }
-
-    $("inventoryBtn").onclick = ()=>{ renderInventory(); openModal("invOverlay"); };
-    $("invClose").onclick = ()=>closeModal("invOverlay");
-
-    $("tradeBtn").onclick = ()=>{ fillTradeSelectors(); openModal("tradeOverlay"); };
-    $("tradeClose").onclick = ()=>closeModal("tradeOverlay");
-
-    $("craftBtn").onclick = ()=>alert("Craft: next upgrade.");
-
-    $("pleaseBtn").onclick = ()=>{ renderPleaseModal(); openModal("pleaseOverlay"); };
-    $("pleaseClose").onclick = ()=>closeModal("pleaseOverlay");
-
-    $("startNightBtn").onclick = ()=>startNight();
-    $("roleActionBtn").onclick = ()=>roleAction();
-    $("pickChallengeBtn").onclick = ()=>pickChallenge();
-
-    $("readyBtn").onclick = async ()=>{
-      await db.ref(`rooms/${currentRoom}/players/${myId}/ready`).set(true);
-      await pushFeed(`${playersState[myId].name} is ready.`);
-    };
-
-    $("barInv").onclick = $("inventoryBtn").onclick;
-    $("barPlease").onclick = $("pleaseBtn").onclick;
-
-    $("resetBtn").onclick = ()=>{
-      localStorage.removeItem("sc_myId");
-      location.reload();
-    };
-
-    ["invOverlay","tradeOverlay","pleaseOverlay","videoOverlay"].forEach(id=>{
-      $(id).addEventListener("click",(e)=>{
-        if(e.target.id===id){
-          if(id==="videoOverlay") $("videoClose").click();
-          else closeModal(id);
-        }
-      });
-    });
-
-    /* ============================
-      JOIN / CREATE
-    ============================ */
-    $("joinBtn").onclick = async ()=>{
-      const code = $("roomInput").value.trim().toUpperCase();
-      if(!code) return alert("Enter room code.");
-      let nm = $("nameInput").value.trim();
-      if(!nm) nm = "Player-" + myId.slice(0,4);
-      await joinOrCreate(code, nm);
-    };
-
-    async function joinOrCreate(code, name){
-      currentRoom = code;
-      $("roomLabel").textContent = code;
-
-      const roomRef = db.ref(`rooms/${code}`);
+    // ======== Room init ========
+    async function joinOrCreate(code){
+      roomCode = code;
+      const roomRef = db.ref(`rooms/${roomCode}`);
       const snap = await roomRef.get();
 
       if(!snap.exists()){
@@ -1264,108 +652,210 @@
           phase: "lobby",
           night: 0,
           fails: 0,
-          supply: 4,
-          power: 3,
-          musicOn: false,
-          musicVol: 0.65,
-          pleaseCosts: { item:1, heal:1, skip:1 },
+          event: "—",
+          timerText: "—",
           challengerId: myId,
-          stash: DEFAULT_STASH,
-          eventText: "—",
-          challengeSub: "—",
-          players: {}
+          challengerSupply: 6,
+          challengerPower: 3,
+          currentCard: { text:"—", showUntil: null },
+          feed: []
         });
       }
 
+      // Determine challenger
       const room = (await roomRef.get()).val();
-      const players = room.players || {};
-      const count = Object.keys(players).length;
+      const challengerId = room.challengerId;
+      isChallenger = (challengerId === myId);
 
-      if(!players[myId] && count >= MAX_PLAYERS){
-        alert("Room is full (max 4).");
+      // Add/update player
+      const meRef = db.ref(`rooms/${roomCode}/players/${myId}`);
+      const meSnap = await meRef.get();
+
+      if(!meSnap.exists()){
+        await meRef.set({
+          id: myId,
+          name: "Player-" + myId.slice(0,4),
+          role: isChallenger ? "Challenger" : "Survivor",
+          hearts: 3,
+          hunger: 70,
+          supply: 3,
+          power: 1,
+          inventory: START_ITEMS.slice()
+        });
+        await pushFeed((isChallenger ? "Dt joined as Challenger." : "Player joined as Survivor."));
+      }
+
+      // Hide start panel
+      $("startPanel").style.display = "none";
+
+      // Play intro once on join
+      // (you will upload assets/intro.mp4 later)
+      // playVideo("assets/intro.mp4");
+
+      listenRoom();
+      setSound(false);
+    }
+
+    $("joinBtn").onclick = async ()=>{
+      const code = $("roomInput").value.trim().toUpperCase();
+      if(!code) return alert("Enter room code (6 chars).");
+      await joinOrCreate(code);
+    };
+
+    // ======== Modals ========
+    function openModal(back){ back.style.display = "flex"; }
+    function closeModal(back){ back.style.display = "none"; }
+
+    $("btnInventory").onclick = ()=> openModal($("invBack"));
+    $("invCloseBtn").onclick = ()=> closeModal($("invBack"));
+
+    $("btnTrade").onclick = ()=> openModal($("tradeBack"));
+    $("tradeCloseBtn").onclick = ()=> closeModal($("tradeBack"));
+
+    $("btnPlease").onclick = ()=>{
+      if(isChallenger){
+        alert("Only Survivors can use Please.");
+        return;
+      }
+      openModal($("pleaseBack"));
+      $("pleaseInfo").textContent = "Choose type + cost, then send.";
+    };
+    $("pleaseCloseBtn").onclick = ()=> closeModal($("pleaseBack"));
+
+    // ======== Inventory add ========
+    $("invAddBtn").onclick = async ()=>{
+      if(!roomCode) return;
+      const v = $("invAddInput").value.trim();
+      if(!v) return;
+
+      const invRef = db.ref(`rooms/${roomCode}/players/${myId}/inventory`);
+      const snap = await invRef.get();
+      const arr = snap.exists() ? (snap.val() || []) : [];
+      const next = [...arr, v].slice(0, 20);
+      await invRef.set(next);
+      $("invAddInput").value = "";
+      await pushFeed("Inventory: added " + v);
+    };
+
+    // ======== Trade (demo offer) ========
+    $("tradeSendBtn").onclick = async ()=>{
+      if(!roomCode) return;
+      const give = $("tradeGive").value;
+      const want = $("tradeWant").value;
+      $("tradeInfo").textContent = `Offer sent: Give "${give}" → Want "${want}" (demo log).`;
+      await pushFeed(`Trade offer: give ${give} for ${want}.`);
+    };
+
+    // ======== Please system (demo approval) ========
+    $("pleaseSendBtn").onclick = async ()=>{
+      if(!roomCode) return;
+
+      const type = $("pleaseType").value;
+      const cost = parseInt($("pleaseCost").value, 10);
+
+      // Create a request in room
+      const req = {
+        by: myId,
+        type,
+        cost,
+        at: now(),
+        status: "pending"
+      };
+      await db.ref(`rooms/${roomCode}/pleaseRequest`).set(req);
+      await pushFeed(`Please request: ${type} (cost ${cost}).`);
+      $("pleaseInfo").textContent = "Request sent. Waiting for Challenger...";
+
+      // DEMO: auto-approve after 1.2s if challenger has supply
+      setTimeout(async ()=>{
+        const room = (await db.ref(`rooms/${roomCode}`).get()).val();
+        const chSupply = room.challengerSupply ?? 0;
+        if(chSupply < cost){
+          await db.ref(`rooms/${roomCode}/pleaseRequest/status`).set("denied");
+          await pushFeed("Challenger denied (not enough supply).");
+          $("pleaseInfo").textContent = "Denied (not enough supply).";
+          return;
+        }
+
+        // Deduct from challenger stash
+        await db.ref(`rooms/${roomCode}/challengerSupply`).set(chSupply - cost);
+
+        // Apply effect
+        if(type === "heal"){
+          const me = (await db.ref(`rooms/${roomCode}/players/${myId}`).get()).val();
+          const newHearts = Math.min(5, (me.hearts ?? 0) + 1);
+          await db.ref(`rooms/${roomCode}/players/${myId}/hearts`).set(newHearts);
+          await pushFeed("Challenger approved: +1 heart.");
+        }else if(type === "skip"){
+          await pushFeed("Challenger approved: skip fail (demo).");
+        }else{
+          // item: give random item from list
+          const item = ALL_ITEMS[Math.floor(Math.random()*ALL_ITEMS.length)];
+          const invRef = db.ref(`rooms/${roomCode}/players/${myId}/inventory`);
+          const snap = await invRef.get();
+          const arr = snap.exists() ? (snap.val() || []) : [];
+          await invRef.set([...arr, item].slice(0,20));
+          await pushFeed("Challenger approved: got item " + item + ".");
+        }
+
+        await db.ref(`rooms/${roomCode}/pleaseRequest/status`).set("approved");
+        $("pleaseInfo").textContent = "Approved ✅";
+      }, 1200);
+    };
+
+    // ======== Night start + card timer ========
+    let cardTick = null;
+
+    function startCardTick(){
+      if(cardTick) clearInterval(cardTick);
+      cardTick = setInterval(async ()=>{
+        if(!roomCode) return;
+        const room = (await db.ref(`rooms/${roomCode}`).get()).val();
+        if(!room?.currentCard?.showUntil) return;
+
+        const left = Math.max(0, Math.ceil((room.currentCard.showUntil - now())/1000));
+        $("cardCountdown").textContent = left + "s";
+        if(left <= 0){
+          await db.ref(`rooms/${roomCode}/currentCard`).set({ text:"—", showUntil:null });
+        }
+      }, 250);
+    }
+
+    $("btnStartNight").onclick = async ()=>{
+      if(!roomCode) return;
+
+      const room = (await db.ref(`rooms/${roomCode}`).get()).val();
+      if(room.challengerId !== myId){
+        alert("Only Challenger can start night.");
         return;
       }
 
-      isChallenger = (room.challengerId === myId);
+      const nextNight = Math.min(7, (room.night || 0) + 1);
+      await db.ref(`rooms/${roomCode}/night`).set(nextNight);
+      await db.ref(`rooms/${roomCode}/phase`).set("night");
 
-      const inv = {};
-      if(!isChallenger){
-        STARTER_ITEMS_SURVIVOR.forEach(it=>inv[it.key]=it.qty);
+      // Random event/card
+      const cards = [
+        "Bear attacks! Choose: Trap or Torch.",
+        "Cold night! Need Fire (Torch/Wood).",
+        "Snake bite! Need Bandage.",
+        "Storm! Lose 1 Supply unless Shelter.",
+        "Hunger spike! Survivors -10 hunger."
+      ];
+      const text = cards[Math.floor(Math.random()*cards.length)];
+      await db.ref(`rooms/${roomCode}/currentCard`).set({ text, showUntil: now() + 8000 });
+
+      await pushFeed("Night " + nextNight + " started.");
+      startCardTick();
+
+      // Win condition (survive 7 nights)
+      if(nextNight >= 7){
+        await db.ref(`rooms/${roomCode}/gameOver`).set({ ended:true, type:"WIN", at: now() });
+        await pushFeed("WIN: Survivors survived 7 nights!");
       }
+    };
 
-      const playerObj = {
-        id: myId,
-        name,
-        role: isChallenger ? "Challenger" : "Survivor",
-        hearts: MAX_HEARTS,
-        hunger: isChallenger ? null : 70,
-        inventory: inv,
-        ready: false,
-        joinedAt: now()
-      };
-
-      await db.ref(`rooms/${code}/players/${myId}`).set(playerObj);
-
-      $("startWrap").style.display="none";
-      $("gameWrap").style.display="flex";
-      $("actionBar").style.display="grid";
-
-      await pushFeed(`${name} joined as ${playerObj.role}.`);
-
-      listenRoom();
-      listenFeed();
-      listenTrades();
-      listenPleaseInbox();
-      startRevealTick();
-    }
-
-    function listenRoom(){
-      db.ref(`rooms/${currentRoom}`).on("value", async snap=>{
-        roomState = snap.val() || null;
-        if(!roomState) return;
-
-        playersState = roomState.players || {};
-        me = playersState[myId] || null;
-        isChallenger = (roomState.challengerId === myId);
-
-        $("statPhase").textContent = roomState.phase || "—";
-        $("statRole").textContent = me?.role || "—";
-        $("statNight").textContent = `${roomState.night ?? 0}/${MAX_NIGHTS}`;
-        $("statFails").textContent = `${roomState.fails ?? 0}/${MAX_FAILS}`;
-        $("statEvent").textContent = roomState.eventText || "—";
-        $("statSupply").textContent = roomState.supply ?? "—";
-        $("statPower").textContent = roomState.power ?? "—";
-        $("statPlayers").textContent = `${Object.keys(playersState).length}/${MAX_PLAYERS}`;
-        $("statHearts").textContent = heartsStr(me?.hearts ?? 0);
-        $("statHunger").textContent = (me?.role==="Challenger") ? "—" : String(me?.hunger ?? 0);
-
-        // role-based
-        $("startNightBtn").disabled = !isChallenger || roomState.phase==="ended";
-        $("pickChallengeBtn").disabled = !isChallenger || roomState.phase==="ended";
-        $("roleActionBtn").disabled = roomState.phase==="ended";
-
-        await applyRoomSound();
-        updateRevealUI(); // show/hide timed card
-
-        // modals if open
-        if($("invOverlay").style.display==="flex") renderInventory();
-        if($("tradeOverlay").style.display==="flex") fillTradeSelectors();
-        if($("pleaseOverlay").style.display==="flex") renderPleaseModal();
-
-        checkWinLose();
-
-        // play intro once per join (role-based)
-        if(me && !me.seenIntro){
-          await db.ref(`rooms/${currentRoom}/players/${myId}/seenIntro`).set(true);
-          if(isChallenger) playVideo("assets/intro-challenger.mp4");
-          else playVideo("assets/intro-survivor.mp4");
-        }
-
-        if(roomState.phase==="ended"){
-          handleEndUI();
-        }
-      });
-    }
+    // Start ticking once user is in
+    startCardTick();
   </script>
 </body>
 </html>
