@@ -729,7 +729,7 @@ const db = firebase.database();
    CONSTANTS / BALANCE
    ========================= */
 const MAX_PLAYERS = 4;
-const MAX_NIGHTS = 5;
+const MAX_NIGHTS = 7;
 const START_HEARTS = 3;
 const START_HUNGER = 50;
 const HUNGER_PER_NIGHT = 10;
@@ -749,6 +749,8 @@ const ITEMS = [
   {id:"grass", name:"Grass", icon:"🌾", type:"food", hunger:+5},
   {id:"wood", name:"Wood", icon:"🪵", type:"mat"},
   {id:"stones", name:"Stones", icon:"🪨", type:"mat"}
+,
+  {id:"stone_throw", name:"Stone Throw", icon:"🪨", type:"weapon", dmg:3, usesStones:2}
 ];
 const itemById = Object.fromEntries(ITEMS.map(x=>[x.id,x]));
 
@@ -768,7 +770,7 @@ const ROLE_SLOT = {
 const POOLS = {
   1: [
     {id:"elephant", name:"Elephant", hp:4, dmg:1, note:"Slow"},
-    {id:"pig", name:"Pig", hp:3, dmg:1, note:"Easy meat"},
+    {id:"pig", name:"Pig", hp:4, dmg:1, note:"Easy meat"},
     {id:"bird", name:"Bird", hp:2, dmg:0, note:"Steals 1 food/grass"},
     {id:"bees", name:"Bee Swarm", hp:2, dmg:1, note:"Extra hunger -5"}
   ],
@@ -1000,7 +1002,7 @@ el("joinBtn").onclick = async ()=>{
     hearts: isChallenger ? 0 : START_HEARTS,
     hunger: isChallenger ? null : START_HUNGER,
     ready: false,
-    inventory: isChallenger ? {} : { grass: 1, stones: 1 },
+    inventory: isChallenger ? {} : { spear: 1, stones: 2, food: 1 },
     lastStarveTick: null
   };
 
@@ -1707,7 +1709,7 @@ function openAttackModal(){
   });
 
   el("attackInfo").textContent = weapons.length
-    ? "Choose a weapon to attack."
+    ? "Choose a weapon to attack (Stone Throw uses Stones)."
     : "You have no weapons. Use Trade or ask Pleaser/Challenger.";
 
   el("attackConfirmBtn").disabled = (weapons.length===0);
