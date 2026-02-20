@@ -450,6 +450,49 @@
     to{ transform: translateY(110vh) rotate(360deg); opacity:0; }
   }
 
+
+  .teamSummary{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .tRow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 10px;
+    border-radius:14px;
+    background: rgba(255,255,255,.62);
+    border: 1px dashed rgba(0,0,0,.18);
+    font-weight:900;
+  }
+  .tLeft{ display:flex; flex-direction:column; gap:2px; min-width: 0; }
+  .tName{ font-weight:1000; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tRole{ opacity:.78; font-size:12px; font-weight:900; }
+  .tItems{ display:flex; gap:10px; align-items:center; font-size:14px; font-weight:1000; white-space:nowrap; }
+  .tItems span{ padding:6px 8px; border-radius:12px; background: rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.10); }
+  .tDead{ opacity:.55; filter:saturate(.7); }
+  .quickChat{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:8px;
+    margin-bottom: 10px;
+  }
+  .qcBtn{
+    padding: 12px 10px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 1000;
+    box-shadow: var(--shadow2);
+    background: linear-gradient(#f1f1f1, #d9d9d9);
+  }
+  .qcBtn:disabled{ opacity:.45; filter:saturate(.5); }
+  @media (min-width: 780px){
+    .quickChat{ grid-template-columns: repeat(3, 1fr); }
+  }
+
 </style>
 </head>
 
@@ -502,9 +545,22 @@
   <!-- ROOM FEED -->
   <div class="card">
     <div class="cardHeader">Room Feed</div>
-    <div class="cardBody">
+    
+<div class="cardBody">
+      <div id="teamSummary" class="teamSummary"></div>
+
+      <div class="quickChat">
+        <button class="qcBtn" id="qcReady" type="button">✅ READY</button>
+        <button class="qcBtn" id="qcSpear" type="button">🗡️ I HAVE SPEAR</button>
+        <button class="qcBtn" id="qcStones" type="button">🪨 I HAVE STONES</button>
+        <button class="qcBtn" id="qcFood" type="button">🍞 I NEED FOOD</button>
+        <button class="qcBtn" id="qcAttack" type="button">⚔️ I CAN ATTACK</button>
+        <button class="qcBtn" id="qcHelp" type="button">🆘 HELP</button>
+      </div>
+
       <div id="feedList"></div>
     </div>
+
   </div>
 
   <!-- NIGHT CARD -->
@@ -890,7 +946,73 @@ function feedPush(text){
   ref.transaction((cur)=>{
     const arr = Array.isArray(cur) ? cur.slice() : [];
     arr.unshift({t: now(), text});
-    return arr.slice(0,3); // LIMIT 3
+    return arr.slice(0,5); // LIMIT 5
+  });
+}
+
+let qcCooldownUntil = 0;
+function qc(text){
+  if(!roomRef) return;
+  const t = Date.now();
+  if(t < qcCooldownUntil) return;
+  qcCooldownUntil = t + 2500; // 2.5s cooldown to stop spam
+  feedPush(text);
+}
+
+function count3(inv){
+  return {
+    spear: (inv && inv.spear) ? inv.spear : 0,
+    stones: (inv && inv.stones) ? inv.stones : 0,
+    food: (inv && inv.food) ? inv.food : 0
+  };
+}
+
+
+function setQuickChatEnabled(on){
+  ["qcReady","qcSpear","qcStones","qcFood","qcAttack","qcHelp"].forEach(id=>{
+    const b = document.getElementById(id);
+    if(b) b.disabled = !on;
+  });
+}
+
+function renderTeamSummary(room){
+  const box = document.getElementById("teamSummary");
+  if(!box) return;
+  const players = Object.values(room.players || {});
+  // show survivors first, challenger last
+  players.sort((a,b)=>{
+    const ra = (a.role==="Challenger") ? 1 : 0;
+    const rb = (b.role==="Challenger") ? 1 : 0;
+    return ra-rb;
+  });
+
+  box.innerHTML = "";
+  players.forEach(p=>{
+    const row = document.createElement("div");
+    row.className = "tRow" + (((p.hearts||0)<=0 && p.role!=="Challenger") || p.alive===false ? " tDead" : "");
+    const left = document.createElement("div");
+    left.className = "tLeft";
+    const nm = document.createElement("div");
+    nm.className = "tName";
+    nm.textContent = p.name + (p.id===myId ? " (you)" : "");
+    const rl = document.createElement("div");
+    rl.className = "tRole";
+    rl.textContent = p.role || "—";
+    left.appendChild(nm);
+    left.appendChild(rl);
+
+    const items = document.createElement("div");
+    items.className = "tItems";
+    if(p.role==="Challenger"){
+      items.innerHTML = `<span>🧠 Power ${(room.power??0)}</span><span>📦 Supply ${(room.supply??0)}</span>`;
+    }else{
+      const c = count3(p.inventory);
+      items.innerHTML = `<span>🗡️ ${c.spear}</span><span>🪨 ${c.stones}</span><span>🍞 ${c.food}</span>`;
+    }
+
+    row.appendChild(left);
+    row.appendChild(items);
+    box.appendChild(row);
   });
 }
 
@@ -1112,6 +1234,7 @@ function listenRoom(){
 function renderUI(room){
   const me = myCache;
   if(!me) return;
+  setQuickChatEnabled(true);
 
   el("uiPhase").textContent = room.phase || "lobby";
   el("uiRole").textContent = me.role || "—";
@@ -1136,6 +1259,9 @@ function renderUI(room){
   // players count
   const pc = room.players ? Object.keys(room.players).length : 0;
   el("uiPlayers").textContent = `${pc}/${MAX_PLAYERS}`;
+
+  // team summary
+  renderTeamSummary(room);
 
   // feed
   const feed = Array.isArray(room.feed) ? room.feed : [];
