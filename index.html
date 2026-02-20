@@ -1473,11 +1473,15 @@ function openInventory(){
   });
 
   const tookNight = me.communityTakeNight || 0;
-  const canTakeNow = (me.role!=="Challenger") && (roomCache && roomCache.phase==="lobby") && ((roomCache.night||0)>0) && (tookNight !== (roomCache.night||0));
+  const nightN = (roomCache.night||0);
+  const lastTake = me.communityTakeNight || 0;
+  const cooldownOk = lastTake !== (nightN-1); // cannot take 2 nights in a row
+  const priorityOk = ((me.hunger??0) <= 25) || ((me.hearts??0) <= 1);
+  const canTakeNow = (me.role!=="Challenger") && (roomCache && roomCache.phase==="lobby") && (nightN>0) && (lastTake !== nightN) && cooldownOk && priorityOk;
   el("communityTakeBtn").disabled = !(options.length && canTakeNow);
   cHint.textContent = canTakeNow
-    ? (options.length ? "Take 1 item from Community (once per night per player)." : "Community is empty.")
-    : "You can take from Community only once per night (during lobby).";
+    ? (options.length ? "Take 1 item from Community (once per night, not 2 nights in a row). Available only if you are low (Hunger ≤ 25 or Hearts ≤ 1)." : "Community is empty.")
+    : "You can take from Community only once per night, not two nights in a row, and only if Hunger ≤ 25 or Hearts ≤ 1.r night (during lobby).";
 
 
   setOverlay("invOverlay", true);
@@ -1523,6 +1527,12 @@ el("communityTakeBtn").onclick = async ()=>{
 
   const tookNight = me.communityTakeNight || 0;
   if(tookNight === (room.night||0)) return alert("You already took from Community this night.");
+
+  // extra rules: cooldown + priority
+  const nightN = room.night||0;
+  if((me.communityTakeNight||0) === (nightN-1)) return alert("Community cooldown: you can't take two nights in a row.");
+  const priorityOk = ((me.hunger??0) <= 25) || ((me.hearts??0) <= 1);
+  if(!priorityOk) return alert("Community take is allowed only if you're low: Hunger ≤ 25 or Hearts ≤ 1.");
 
   const itemId = el("communityTakeSelect").value;
   if(!itemId) return alert("Community is empty.");
@@ -2491,7 +2501,7 @@ function randomLootFor(role){
   if(r < 0.60) return pick(c);
   if(r < 0.90) return pick(s);
   return pick(u);
-}}
+}
 
 async function pickFinderCard(cardBtn){
   const room = roomCache;
