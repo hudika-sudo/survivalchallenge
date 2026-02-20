@@ -357,6 +357,7 @@
     #nightCard{ height: 240px; }
   }
 
+  /* Damage pop */
   #damagePop{
     position:absolute;
     top:50%;
@@ -376,13 +377,6 @@
   @keyframes popUp{
     from{ opacity:0; transform:translate(-50%,-50%) scale(.9); }
     to{ opacity:1; transform:translate(-50%,-70%) scale(1); }
-  }
-  .pulse{
-    animation: pulseGlow 1.2s ease-in-out infinite;
-  }
-  @keyframes pulseGlow{
-    0%,100%{ filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: translateZ(0); }
-    50%{ filter: drop-shadow(0 0 14px rgba(255,255,255,.65)); }
   }
 
 </style>
@@ -468,8 +462,8 @@
 
     <button id="btnReady" class="btnGreen">Ready</button>
     <button id="btnAttack" class="btnGreen">Attack</button>
-    <button id="btnChooseAttacker" class="btnGreen">Choose Attacker</button>
     <button id="btnPickChallenge" class="btnGreen">Pick Challenge</button>
+    <button id="btnChooseAttacker" class="btnGreen">Choose Attacker</button>
     <button id="btnStartNight" class="btnRed">Start Night</button>
   </div>
 </div>
@@ -578,29 +572,26 @@
       <button id="chooseAttackerClose" class="btnDark" style="padding:10px 12px;border-radius:14px;">Close</button>
     </div>
     <div class="modalBody">
-      <div class="muted">Pick 1 alive Survivor to attack. Only 1 attack total per night.</div>
+      <div class="muted">Pick which Survivor may attack this night. Only the selected player will see Attack enabled.</div>
       <select id="chooseAttackerSelect"></select>
-      <div class="row2">
-        <button id="chooseAttackerSetBtn" class="btnGreen">Set Attacker</button>
-        <button id="chooseAttackerClearBtn" class="btnDark">Clear</button>
-      </div>
+      <button id="chooseAttackerConfirm" class="btnGreen">Confirm Attacker</button>
+      <button id="clearAttackerConfirm" class="btnDark">Clear Choice</button>
     </div>
   </div>
 </div>
-
 
 <!-- ATTACK MODAL -->
 <div class="overlay" id="attackOverlay">
   <div class="modal">
     <div class="modalHead">
-      <span>Attack (chosen by Challenger)</span>
+      <span>Attack (only 1 per night)</span>
       <button id="attackClose" class="btnDark" style="padding:10px 12px;border-radius:14px;">Close</button>
     </div>
     <div class="modalBody">
       <div class="muted" id="attackInfo">Choose a weapon.</div>
       <select id="attackWeaponSelect"></select>
       <button id="attackConfirmBtn" class="btnGreen">Confirm Attack</button>
-      <div class="muted">You can attack only when Challenger selects you.</div>
+      <div class="muted">First player to confirm becomes the attacker for this night.</div>
     </div>
   </div>
 </div>
@@ -678,9 +669,8 @@ const ITEMS = [
   {id:"meat", name:"Meat", icon:"🍖", type:"food", hunger:+25},
   {id:"grass", name:"Grass", icon:"🌾", type:"food", hunger:+5},
   {id:"wood", name:"Wood", icon:"🪵", type:"mat"},
-  {id:"stones", name:"Stones", icon:"🪨", type:"mat"}
-];
-  ,{id:"stone_throw", name:"Stone Throw", icon:"🪨", type:"weapon", dmg:3, usesStones:2}
+  {id:"stones", name:"Stones", icon:"🪨", type:"mat"},
+  {id:"stone_throw", name:"Stone Throw", icon:"🪨", type:"weapon", dmg:3, usesStones:2}
 ];
 const itemById = Object.fromEntries(ITEMS.map(x=>[x.id,x]));
 
@@ -731,17 +721,6 @@ const POOLS = {
 };
 
 // events (simple)
-function poolForNight(n){
-  if(n<=1) return POOLS[1];
-  if(n===2) return POOLS[2];
-  if(n===3) return POOLS[3];
-  if(n===4) return POOLS[4];
-  // 5,6 use hard pool; 7 is buffed boss
-  const base = POOLS[5];
-  if(n===7) return base.map(a=>({...a, hp:a.hp+2}));
-  return base;
-}
-
 function randomEventForNight(n){
   const arr = (n<=2) ? ["Cold","Lucky Find"] : (n===3 ? ["Storm","Cold","Lucky Find"] : ["Storm","Lightning","Cold"]);
   return arr[Math.floor(Math.random()*arr.length)];
@@ -781,9 +760,10 @@ function feedPush(text){
   ref.transaction((cur)=>{
     const arr = Array.isArray(cur) ? cur.slice() : [];
     arr.unshift({t: now(), text});
-    return arr.slice(0,5); // LIMIT 5
+    return arr.slice(0,5); // LIMIT 3
   });
 }
+
 
 function showPop(txt){
   const d = document.getElementById("damagePop");
@@ -791,10 +771,11 @@ function showPop(txt){
   d.textContent = txt;
   d.style.display = "block";
   d.style.animation = "none";
-  void d.offsetHeight;
+  void d.offsetHeight; // restart animation
   d.style.animation = "";
-  setTimeout(()=>{ d.style.display = "none"; }, 650);
+  setTimeout(()=>{ d.style.display="none"; }, 650);
 }
+
 
 function invToArray(invObj){
   const arr = [];
@@ -835,6 +816,7 @@ function removeItemFromInv(playerRef, itemId, qty){
 if(myName) el("nameInput").value = myName;
 
 el("joinBtn").onclick = async ()=>{
+  try {
   const code = safeUpper(el("roomInput").value);
   const name = (el("nameInput").value||"").trim().slice(0,10);
   if(!code || code.length<3) return alert("Enter room code (min 3 chars).");
@@ -933,6 +915,10 @@ el("joinBtn").onclick = async ()=>{
   feedPush(`${myName} joined as ${role}.`);
 
   listenRoom();
+  } catch (e) {
+    console.error(e);
+    alert("Join error: " + (e && e.message ? e.message : e));
+  }
 };
 
 /* =========================
@@ -1086,24 +1072,20 @@ function renderUI(room){
   el("btnReady").style.display = (me.role!=="Challenger") ? "block" : "none";
   el("btnReady").disabled = !(room.phase==="lobby" && me.role!=="Challenger" && isAlive);
 
-  // Attack: Challenger picks exactly who can attack (1 total per night)
+  // Attack: only in night phase for survivors alive, and only if attacker not chosen yet
   const attackerChosen = !!room.attackerId;
-  const myTurnToAttack = room.attackTurn && room.attackTurn === myId;
+  const myTurnToAttack = !!room.attackTurn && room.attackTurn === myId;
   el("btnAttack").style.display = (me.role!=="Challenger") ? "block" : "none";
-  el("btnAttack").disabled = !(room.phase==="night" && isAlive && !attackerChosen && myTurnToAttack);
-  el("btnAttack").classList.toggle("pulse", !el("btnAttack").disabled);
-
-  // Choose Attacker (Challenger)
-  const chooseBtn = el("btnChooseAttacker");
-  if(chooseBtn){
-    chooseBtn.style.display = isCh ? "block" : "none";
-    chooseBtn.disabled = !(isCh && room.phase==="night" && !attackerChosen);
-  }
+  // Only the chosen attacker can attack, and only if attack not used yet
+  el("btnAttack").disabled = !(room.phase==="night" && isAlive && myTurnToAttack && !attackerChosen);
 
   // Challenger controls
   el("btnPickChallenge").style.display = isCh ? "block" : "none";
+  el("btnChooseAttacker").style.display = isCh ? "block" : "none";
   el("btnStartNight").style.display = isCh ? "block" : "none";
+
   el("btnPickChallenge").disabled = !(isCh && room.phase==="lobby" && (room.night||0) < MAX_NIGHTS);
+  el("btnChooseAttacker").disabled = !(isCh && room.phase==="night" && !room.attackerId);
   el("btnStartNight").disabled = !(isCh && room.phase==="lobby" && room.challenge && room.challenge.picks && room.challenge.picks.length===2);
 
   // if not challenger hide supply/power controls (still shown as stats)
@@ -1112,7 +1094,7 @@ function renderUI(room){
 /* =========================
    STARVATION: hunger 0 => -1 heart per 10s until eats
    ========================= */
-async function handleStarvation(room){
+function handleStarvation(room){
   const me = myCache;
   if(!me || me.role==="Challenger") return;
   if(me.alive===false) return;
@@ -1332,9 +1314,9 @@ function openChallengePicker(){
 
   const nextNight = (room.night||0) + 1;
   const tier = clamp(nextNight, 1, 5);
-  const options = poolForNight(nextNight).slice(); // 4
+  const options = POOLS[tier].slice(); // 4
 
-  el("challengeTierText").textContent = `Night ${nextNight}/${MAX_NIGHTS} • Tier ${tier} • Choose 2 of 4`;
+  el("challengeTierText").textContent = `Night ${nextNight}/5 • Tier ${tier} • Choose 2 of 4`;
 
   const wrap = el("challengeOptions");
   wrap.innerHTML = "";
@@ -1391,6 +1373,57 @@ el("challengeConfirmBtn").onclick = async ()=>{
   setOverlay("challengeOverlay", false);
 };
 
+
+/* =========================
+   CHOOSE ATTACKER (Challenger) - dropdown modal
+   ========================= */
+el("btnChooseAttacker").onclick = ()=> openChooseAttacker();
+el("chooseAttackerClose").onclick = ()=> setOverlay("chooseAttackerOverlay", false);
+
+function openChooseAttacker(){
+  const room = roomCache;
+  if(!room || room.challengerId !== myId) return;
+  if(room.phase !== "night") return alert("Choose attacker during night.");
+  const players = room.players || {};
+  const sel = el("chooseAttackerSelect");
+  sel.innerHTML = "";
+
+  const survivors = Object.values(players).filter(p => p.role !== "Challenger" && (p.hearts||0) > 0 && p.alive !== false);
+  if(survivors.length === 0) return alert("No alive survivors.");
+
+  survivors.forEach(p=>{
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = `${p.name} (${p.role}) ${p.inventory ? "" : ""}`;
+    sel.appendChild(opt);
+  });
+
+  // preselect current turn if set
+  if(room.attackTurn){
+    sel.value = room.attackTurn;
+  }
+  setOverlay("chooseAttackerOverlay", true);
+}
+
+el("chooseAttackerConfirm").onclick = async ()=>{
+  const room = roomCache;
+  if(!room || room.challengerId !== myId) return;
+  const pid = el("chooseAttackerSelect").value;
+  if(!pid) return;
+  await roomRef.child("attackTurn").set(pid);
+  const p = (room.players||{})[pid];
+  feedPush(`Challenger chose ${p ? p.name : "a player"} to attack.`);
+  setOverlay("chooseAttackerOverlay", false);
+};
+
+el("clearAttackerConfirm").onclick = async ()=>{
+  const room = roomCache;
+  if(!room || room.challengerId !== myId) return;
+  await roomRef.child("attackTurn").set(null);
+  feedPush("Challenger cleared attacker choice.");
+  setOverlay("chooseAttackerOverlay", false);
+};
+
 /* =========================
    START NIGHT (Challenger)
    ========================= */
@@ -1412,7 +1445,7 @@ el("btnStartNight").onclick = async ()=>{
   if(nextNight > MAX_NIGHTS) return;
 
   // random choose 1 of picks
-  const pool = poolForNight(nextNight);
+  const pool = POOLS[clamp(nextNight,1,5)];
   const picked = room.challenge.picks;
   const chosenId = picked[Math.floor(Math.random()*picked.length)];
   const chosen = pool.find(a=>a.id===chosenId) || pool[0];
@@ -1426,7 +1459,7 @@ el("btnStartNight").onclick = async ()=>{
 
   // set phase night, event, timer end, reset attacker
   const event = randomEventForNight(nextNight);
-  const timerEnd = now() + ((nextNight===1)?90:45)*1000; // longer first night
+  const timerEnd = now() + (nextNight===1 ? 90*1000 : 45*1000); // Night 1 longer
 
   await roomRef.update({
     phase: "night",
@@ -1453,68 +1486,6 @@ el("btnStartNight").onclick = async ()=>{
   feedPush(`Night ${nextNight} started: ???`);
 };
 
-
-/* =========================
-   CHOOSE ATTACKER (Challenger)
-   ========================= */
-el("btnChooseAttacker").onclick = ()=> openChooseAttacker();
-el("chooseAttackerClose").onclick = ()=> setOverlay("chooseAttackerOverlay", false);
-el("chooseAttackerClearBtn").onclick = async ()=>{
-  if(!roomCache) return;
-  if(roomCache.challengerId !== myId) return;
-  await roomRef.child("attackTurn").set(null);
-  feedPush("Challenger cleared attacker selection.");
-  setOverlay("chooseAttackerOverlay", false);
-};
-
-function openChooseAttacker(){
-  const room = roomCache;
-  if(!room) return;
-  if(room.challengerId !== myId) return;
-  if(room.phase !== "night") return alert("Only during night.");
-  if(room.attackerId) return alert("Attack already used this night.");
-  if(room.attackTurn !== myId) return alert("Challenger must select you to attack.");
-
-  // lock attack (1 total per night)
-  const lock = await roomRef.child("attackerId").transaction((cur)=> cur ? cur : myId);
-  if(!lock.committed) return alert("Too late. Attack already used.");
-
-  const sel = el("chooseAttackerSelect");
-  sel.innerHTML = "";
-  Object.values(room.players||{}).forEach(p=>{
-    if(p.role==="Challenger") return;
-    const alive = (p.hearts||0) > 0 && p.alive !== false;
-    if(!alive) return;
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = `${p.name} (${p.role}) • ${heartsText(p.hearts)} • hunger ${p.hunger ?? "—"}`;
-    sel.appendChild(opt);
-  });
-  if(!sel.options.length) return alert("No alive survivors.");
-
-  // preselect current
-  if(room.attackTurn){
-    const opt = Array.from(sel.options).find(o=>o.value===room.attackTurn);
-    if(opt) sel.value = room.attackTurn;
-  }
-
-  setOverlay("chooseAttackerOverlay", true);
-}
-
-el("chooseAttackerSetBtn").onclick = async ()=>{
-  const room = roomCache;
-  if(!room) return;
-  if(room.challengerId !== myId) return;
-  const pid = el("chooseAttackerSelect").value;
-  if(!pid) return;
-
-  // set chosen attacker
-  await roomRef.child("attackTurn").set(pid);
-  const p = room.players && room.players[pid];
-  feedPush(`Challenger chose ${p ? p.name : "a survivor"} to attack.`);
-  setOverlay("chooseAttackerOverlay", false);
-};
-
 /* =========================
    ATTACK (Survivors) - only 1 per night
    ========================= */
@@ -1534,13 +1505,25 @@ function openAttackModal(){
     return it && it.type==="weapon";
   });
 
+  // Add Stone Throw if player has enough stones (2 stones = 1 throw)
+  const stonesQty = (me.inventory && me.inventory.stones) ? me.inventory.stones : 0;
+  if(stonesQty >= 2){
+    weapons.push({ id:"stone_throw", qty: Math.floor(stonesQty/2) });
+  }
+
+
   const sel = el("attackWeaponSelect");
   sel.innerHTML = "";
   weapons.forEach(w=>{
-    const it = itemById[w.id];
     const opt = document.createElement("option");
-    opt.value = w.id;
-    opt.textContent = `${it.icon} ${it.name} (dmg ${it.dmg}) x${w.qty}`;
+    if(w.id === "stone_throw"){
+      opt.value = "stone_throw";
+      opt.textContent = `🪨 Stone Throw (uses 2 Stones) (dmg 3) x${w.qty}`;
+    } else {
+      const it = itemById[w.id];
+      opt.value = w.id;
+      opt.textContent = `${it.icon} ${it.name} (dmg ${it.dmg}) x${w.qty}`;
+    }
     sel.appendChild(opt);
   });
 
@@ -1558,32 +1541,40 @@ el("attackConfirmBtn").onclick = async ()=>{
   if(!room || !me) return;
   if(me.role==="Challenger") return;
   if(room.phase!=="night") return;
+  if(room.attackTurn !== myId) return alert("Challenger did not pick you to attack.");
   if(room.attackerId) return alert("Attack already used this night.");
-  if(room.attackTurn !== myId) return alert("Challenger must select you to attack.");
 
-  // lock attack (1 total per night)
-  const lock = await roomRef.child("attackerId").transaction((cur)=> cur ? cur : myId);
-  if(!lock.committed) return alert("Too late. Attack already used.");
+  // lock attacker via transaction
+  const attackerSet = await roomRef.child("attackerId").transaction((cur)=>{
+    if(cur) return; // already set
+    return myId;
+  });
 
-  
+  if(!attackerSet.committed){
+    return alert("Too late. Someone attacked already.");
+  }
+
   const weaponId = el("attackWeaponSelect").value;
 
   let dmg = 0;
-  let weaponName = "";
+  let it = null;
+
+  if(weaponId === "stone_throw"){
+    dmg = 3;
+  } else {
+    it = itemById[weaponId];
+    if(!it || it.type!=="weapon") return;
+    dmg = it.dmg || 0;
+  }
 
   const pRef = roomRef.child("players").child(myId);
 
+  // consume weapon / stones
   if(weaponId === "stone_throw"){
-    // costs 2 stones
-    dmg = 3;
-    weaponName = "Stone Throw";
     await removeItemFromInv(pRef, "stones", 2);
+  } else if(it.oneUse){
+    await removeItemFromInv(pRef, weaponId, 1);
   } else {
-    const it = itemById[weaponId];
-    if(!it || it.type!=="weapon") return;
-    dmg = it.dmg || 0;
-    weaponName = it.name;
-    // every attack consumes 1 unit of weapon
     await removeItemFromInv(pRef, weaponId, 1);
   }
 
@@ -1596,12 +1587,10 @@ el("attackConfirmBtn").onclick = async ()=>{
     return a;
   });
 
-  feedPush(`${me.name} attacked with ${weaponName} (-${dmg} HP).`);
+  feedPush(`${me.name} attacked with ${(weaponId==="stone_throw") ? "Stone Throw" : it.name} (-${dmg} HP).`);
   showPop(`-${dmg} HP`);
-  setOverlay("attackOverlay", false);
-
-  // clear chosen attacker for this night
   await roomRef.child("attackTurn").set(null);
+  setOverlay("attackOverlay", false);
 
   // after attack, check if animal dead => resolve success, else animal attacks
   const updated = (await roomRef.get()).val();
@@ -1740,14 +1729,7 @@ async function applyAnimalAttack(room, animal, survivors){
   feedPush(`${animal.name} attacked ${t.name} (-${animal.dmg} heart).`);
 }
 
-async async function applyFail(room, survivors, msg){
-  // PLEASE: Skip next FAIL (one time)
-  if(room.pleaseFailShield && room.pleaseFailShield.active && room.pleaseFailShield.night === room.night){
-    await roomRef.child("pleaseFailShield").set(null);
-    await feedPush(`🛡️ PLEASE blocked a FAIL!`);
-    return;
-  }
-
+async function applyFail(room, survivors, msg){
   // Guardian shield can cancel FAIL once per game
   const usedShield = !!room.usedShield;
   if(!usedShield){
@@ -1766,8 +1748,8 @@ async async function applyFail(room, survivors, msg){
         await roomRef.child("players").child(s.id).child("hearts").transaction(h=>(h||0)-1);
       }
       await roomRef.child("fails").transaction(x=>(x||0)+1);
-      feedPush(msg);
       showPop("FAIL -1❤️ ALL");
+      feedPush(msg);
       await roomRef.child("pendingFail").set(null);
     }
   }else{
@@ -1776,8 +1758,8 @@ async async function applyFail(room, survivors, msg){
       await roomRef.child("players").child(s.id).child("hearts").transaction(h=>(h||0)-1);
     }
     await roomRef.child("fails").transaction(x=>(x||0)+1);
-    feedPush(msg);
     showPop("FAIL -1❤️ ALL");
+    feedPush(msg);
   }
 }
 
@@ -1841,7 +1823,7 @@ function handlePendingPleaseUI(room){
 el("btnRole").onclick = ()=> openRoleAction();
 el("roleClose").onclick = ()=> setOverlay("roleOverlay", false);
 
-async function openRoleAction(){
+function openRoleAction(){
   const room = roomCache;
   const me = myCache;
   if(!room || !me) return;
@@ -1858,7 +1840,7 @@ async function openRoleAction(){
     soundBtn.textContent = room.soundOn ? "Sound OFF" : "Sound ON";
     soundBtn.onclick = async ()=>{
       await roomRef.child("soundOn").set(!room.soundOn);
-      toast(!room.soundOn ? "Sound ON" : "Sound OFF");
+      feedPush(!room.soundOn ? "Sound ON." : "Sound OFF.");
     };
     body.appendChild(soundBtn);
 
