@@ -680,15 +680,10 @@
     </div>
     <div class="modalBody">
       <div class="muted" id="pleaseInfo">—</div>
-
-      <select id="pleaseTypeSelect">
-        <option value="item">Item (from Challenger stash)</option>
-        <option value="heal">Heal (+1 ❤️ to a Survivor)</option>
-        <option value="skip">Skip FAIL (cancel next FAIL)</option>
-      </select>
+      <select id="pleaseTypeSelect"></select>
       <select id="pleaseTargetSelect" style="display:none;"></select>
       <select id="pleaseItemSelect"></select>
-      <button id="pleaseRequestBtn" class="btnGreen">Request item from Challenger stash</button>
+      <button id="pleaseRequestBtn" class="btnGreen">Send Please Request</button>
       <div class="muted">Pleaser has 2 Please uses per game. Challenger approves and chooses cost (1–2 Supply).</div>
     </div>
   </div>
@@ -787,13 +782,11 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
-
-// Server time offset (keeps timers synced across phones)
+// --- server time sync (fixes timer differences between phones) ---
 let serverOffset = 0;
-db.ref(".info/serverTimeOffset").on("value", (snap)=>{
-  serverOffset = snap.val() || 0;
-});
+db.ref(".info/serverTimeOffset").on("value", (snap)=>{ serverOffset = snap.val() || 0; });
+function nowServer(){ return Date.now() + serverOffset; }
+
 
 /* =========================
    CONSTANTS / BALANCE
@@ -890,7 +883,7 @@ let roomRef = null;
 
 const el = (id)=>document.getElementById(id);
 
-function now(){ return Date.now() + (serverOffset||0); }
+function now(){ return nowServer(); }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
 function heartsText(h){
@@ -899,39 +892,6 @@ function heartsText(h){
 }
 
 function safeUpper(s){ return (s||"").trim().toUpperCase(); }
-
-
-
-/* =========================
-   QUICK CHAT (bind buttons)
-   ========================= */
-let qcCooldownUntil = 0;
-function qcSend(msg){
-  if(!roomRef) return;
-  const t = Date.now();
-  if(t < qcCooldownUntil) return;
-  qcCooldownUntil = t + 2000;
-  feedPush(msg);
-}
-
-function bindQuickChat(){
-  const btn = (id, makeMsg)=>{
-    const b = el(id);
-    if(!b) return;
-    b.type = "button";
-    b.onclick = ()=>{
-      const me = myCache;
-      if(!me) return;
-      qcSend(makeMsg(me));
-    };
-  };
-  btn("qcReady",  (m)=>`✅ ${m.name} READY`);
-  btn("qcSpear",  (m)=>`🗡️ ${m.name}: I HAVE SPEAR (${(m.inventory&&m.inventory.spear)||0})`);
-  btn("qcStones", (m)=>`🪨 ${m.name}: I HAVE STONES (${(m.inventory&&m.inventory.stones)||0})`);
-  btn("qcFood",   (m)=>`🍞 ${m.name}: I NEED FOOD`);
-  btn("qcAttack", (m)=>`⚔️ ${m.name}: I CAN ATTACK`);
-  btn("qcHelp",   (m)=>`🆘 ${m.name}: HELP / TRADE?`);
-}
 
 function setOverlay(id, on){
   const o = el(id);
@@ -997,14 +957,6 @@ function feedPush(text){
   });
 }
 
-let qcCooldownUntil = 0;
-function qc(text){
-  if(!roomRef) return;
-  const t = Date.now();
-  if(t < qcCooldownUntil) return;
-  qcCooldownUntil = t + 2500; // 2.5s cooldown to stop spam
-  feedPush(text);
-}
 
 function count3(inv){
   return {
@@ -1194,8 +1146,6 @@ el("joinBtn").onclick = async ()=>{
   el("gameScreen").style.display = "flex";
   el("actionBar").style.display = "block";
 
-
-  bindQuickChat();
   // play intro video once per join
   showIntroVideo(role);
 
@@ -1316,7 +1266,7 @@ function renderUI(room){
   const feed = Array.isArray(room.feed) ? room.feed : [];
   const feedList = el("feedList");
   feedList.innerHTML = "";
-  feed.slice(0,3).forEach(f=>{
+  feed.slice(0,5).forEach(f=>{
     const div = document.createElement("div");
     div.className = "feedItem enter";
     div.textContent = f.text;
@@ -1402,7 +1352,26 @@ function handleStarvation(room){
 
   if(starveInterval) clearInterval(starveInterval);
 
-  starveInterval = setInterval(async ()=>{
+  starveInterval = 
+/* =========================
+   CHALLENGER TIMER WATCHDOG (auto-resolve night on timeout)
+   ========================= */
+setInterval(async ()=>{
+  const r = roomCache;
+  const m = myCache;
+  if(!r || !m) return;
+  if(r.challengerId !== myId) return;
+  if(r.phase !== "night") return;
+  if(!r.timerEnd) return;
+  if(now() < r.timerEnd) return;
+
+  // If timer hits 0 and no one killed the animal -> FAIL
+  try{
+    await resolveNight(false);
+  }catch(e){}
+}, 500);
+
+setInterval(async ()=>{
     const r = roomCache;
     const m = myCache;
     if(!r || !m || m.role==="Challenger") return;
@@ -1496,11 +1465,15 @@ function openInventory(){
   });
 
   const tookNight = me.communityTakeNight || 0;
-  const canTakeNow = (me.role!=="Challenger") && (roomCache && roomCache.phase==="lobby") && ((roomCache.night||0)>0) && (tookNight !== (roomCache.night||0));
+  const nightN = (roomCache.night||0);
+  const lastTake = me.communityTakeNight || 0;
+  const cooldownOk = lastTake !== (nightN-1); // cannot take 2 nights in a row
+  const priorityOk = ((me.hunger??0) <= 25) || ((me.hearts??0) <= 1);
+  const canTakeNow = (me.role!=="Challenger") && (roomCache && roomCache.phase==="lobby") && (nightN>0) && (lastTake !== nightN) && cooldownOk && priorityOk;
   el("communityTakeBtn").disabled = !(options.length && canTakeNow);
   cHint.textContent = canTakeNow
-    ? (options.length ? "Take 1 item from Community (once per night per player)." : "Community is empty.")
-    : "You can take from Community only once per night (during lobby).";
+    ? (options.length ? "Take 1 item from Community (once per night, not 2 nights in a row). Available only if you are low (Hunger ≤ 25 or Hearts ≤ 1)." : "Community is empty.")
+    : "You can take from Community only once per night, not two nights in a row, and only if Hunger ≤ 25 or Hearts ≤ 1.r night (during lobby).";
 
 
   setOverlay("invOverlay", true);
@@ -1546,12 +1519,12 @@ el("communityTakeBtn").onclick = async ()=>{
 
   const tookNight = me.communityTakeNight || 0;
   if(tookNight === (room.night||0)) return alert("You already took from Community this night.");
-  // cooldown: cannot take two nights in a row
-  if(tookNight === (room.night||0)-1) return alert("Cooldown: you cannot take from Community two nights in a row.");
-  // priority rule: only if low Hunger or low Hearts
-  const h = me.hunger ?? 0;
-  const hearts = me.hearts ?? 0;
-  if(h > 25 && hearts > 1) return alert("Community priority: you can take only if Hunger ≤ 25 or Hearts ≤ 1.");
+
+  // extra rules: cooldown + priority
+  const nightN = room.night||0;
+  if((me.communityTakeNight||0) === (nightN-1)) return alert("Community cooldown: you can't take two nights in a row.");
+  const priorityOk = ((me.hunger??0) <= 25) || ((me.hearts??0) <= 1);
+  if(!priorityOk) return alert("Community take is allowed only if you're low: Hunger ≤ 25 or Hearts ≤ 1.");
 
   const itemId = el("communityTakeSelect").value;
   if(!itemId) return alert("Community is empty.");
@@ -1870,11 +1843,10 @@ function openAttackModal(){
   const room = roomCache;
   const me = myCache;
   if(!room || !me) return;
-  if(me.role==="Challenger") { feedPush("Challenger cannot attack."); return; }
-  if(room.phase!=="night") { feedPush("Attack is only available during NIGHT."); return; }
-  if(room.attackTurn && room.attackTurn !== myId){ feedPush("Not your turn to attack. Wait for Challenger."); return; }
-  if(!room.attackTurn){ feedPush("Wait for Challenger to choose the attacker."); return; }
-  setOverlay("attackOverlay", true);
+  if(me.role==="Challenger") return;
+  if(room.phase!=="night") return;
+
+  if(room.challengerId !== myId) return;
 
   // list weapons in inventory
   const weapons = invToArray(me.inventory).filter(x=>{
@@ -2103,12 +2075,14 @@ async function applyAnimalAttack(room, animal, survivors){
 }
 
 async function applyFail(room, survivors, msg){
-  // Pleaser-approved Skip FAIL cancels the next FAIL once
-  if(room.skipFailActive && room.skipFailActive.active){
-    await roomRef.child("skipFailActive").set(null);
-    feedPush("🛡️ SKIP FAIL activated — the team avoided losing hearts!");
+  // Please: skip next FAIL (one-time)
+  if(room.skipFail){
+    await roomRef.child("skipFail").set(false);
+    feedPush("FAIL was skipped (Please).");
+    showPop("FAIL SKIPPED");
     return;
   }
+
   // Guardian shield can cancel FAIL once per game
   const usedShield = !!room.usedShield;
   if(!usedShield){
@@ -2154,13 +2128,41 @@ function openPlease(){
   const room = roomCache;
   const me = myCache;
   if(!room || !me) return;
+  if(me.role!=="Pleaser") return;
 
   const used = (room.usedPlease && room.usedPlease[myId]) ? room.usedPlease[myId] : 0;
   el("pleaseInfo").textContent = `Please uses: ${used}/2`;
 
-  const sel = el("pleaseItemSelect");
-  sel.innerHTML = "";
-  // Pleaser can request from stash list
+  const typeSel = el("pleaseTypeSelect");
+  const targetSel = el("pleaseTargetSelect");
+  const itemSel = el("pleaseItemSelect");
+
+  // Types: Item / Heal / Skip Fail (Guardian shield-like, but Pleaser-triggered)
+  typeSel.innerHTML = "";
+  [
+    {v:"item", t:"🎁 Item request"},
+    {v:"heal", t:"❤️ Heal (give +1 heart)"},
+    {v:"skip", t:"🛡️ Skip next FAIL (shield)"},
+  ].forEach(o=>{
+    const opt = document.createElement("option");
+    opt.value = o.v;
+    opt.textContent = o.t;
+    typeSel.appendChild(opt);
+  });
+
+  // Targets = survivors (not Challenger), alive
+  targetSel.innerHTML = "";
+  Object.values(room.players||{}).forEach(p=>{
+    if(p.role==="Challenger") return;
+    if((p.hearts||0)<=0 || p.alive===false) return;
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = `${p.name} (${p.role})`;
+    targetSel.appendChild(opt);
+  });
+
+  // Items from Challenger stash (only for item type)
+  itemSel.innerHTML = "";
   const stash = room.stash || {};
   Object.keys(stash).forEach(id=>{
     if((stash[id]||0) <= 0) return;
@@ -2168,43 +2170,22 @@ function openPlease(){
     const opt = document.createElement("option");
     opt.value = id;
     opt.textContent = `${it.icon} ${it.name} (stash ${stash[id]})`;
-    sel.appendChild(opt);
+    itemSel.appendChild(opt);
   });
 
-    // type + target
-  const typeSel = el("pleaseTypeSelect");
-  const tgtSel = el("pleaseTargetSelect");
-  const itemSel = el("pleaseItemSelect");
-  const refreshTargets = ()=>{
-    const room2 = roomCache;
-    tgtSel.innerHTML = "";
-    const surv = Object.values(room2.players||{}).filter(p=>p.role!=="Challenger" && (p.hearts||0)>0);
-    surv.forEach(p=>{
-      const opt=document.createElement("option");
-      opt.value=p.id;
-      opt.textContent=`${p.name} (${p.hearts||0}❤️)`;
-      tgtSel.appendChild(opt);
-    });
-  };
-  const refreshUI = ()=>{
+  const refresh = ()=>{
     const t = typeSel.value;
     if(t==="item"){
-      itemSel.style.display="block";
-      tgtSel.style.display="none";
-      el("pleaseRequestBtn").textContent = "Send Please (Item)";
-    }else if(t==="heal"){
-      itemSel.style.display="none";
-      tgtSel.style.display="block";
-      refreshTargets();
-      el("pleaseRequestBtn").textContent = "Send Please (Heal)";
+      itemSel.style.display = "";
+      targetSel.style.display = "none";
     }else{
-      itemSel.style.display="none";
-      tgtSel.style.display="none";
-      el("pleaseRequestBtn").textContent = "Send Please (Skip FAIL)";
+      itemSel.style.display = "none";
+      targetSel.style.display = "";
     }
   };
-  typeSel.onchange = refreshUI;
-  refreshUI();
+  typeSel.onchange = refresh;
+  refresh();
+
   setOverlay("pleaseOverlay", true);
 }
 
@@ -2218,22 +2199,29 @@ el("pleaseRequestBtn").onclick = async ()=>{
   if(used>=2) return alert("No Please uses left.");
   if(room.pendingPlease) return alert("Please request already pending.");
 
-  const type = el("pleaseTypeSelect") ? el("pleaseTypeSelect").value : "item";
+  const kind = el("pleaseTypeSelect")?.value || "item";
 
-  if(type==="item"){
+  let req = { fromId: myId, kind, t: now() };
+
+  if(kind==="item"){
     const itemId = el("pleaseItemSelect").value;
     if(!itemId) return alert("Pick an item.");
-    await roomRef.child("pendingPlease").set({ type:"item", fromId: myId, itemId, t: now() });
-    feedPush(`${me.name} requested ${itemById[itemId]?.name||itemId}.`);
-  }else if(type==="heal"){
+    req.itemId = itemId;
+  }else{
     const targetId = el("pleaseTargetSelect").value;
     if(!targetId) return alert("Pick a target.");
-    await roomRef.child("pendingPlease").set({ type:"heal", fromId: myId, targetId, t: now() });
-    const tPlayer = room.players && room.players[targetId];
-    feedPush(`${me.name} requested HEAL for ${tPlayer ? tPlayer.name : "a player"}.`);
+    req.targetId = targetId;
+  }
+
+  await roomRef.child("pendingPlease").set(req);
+
+  if(kind==="item"){
+    feedPush(`${me.name} PLEASE: requests ${itemById[req.itemId]?.name||req.itemId}.`);
+  }else if(kind==="heal"){
+    const t = (room.players||{})[req.targetId];
+    feedPush(`${me.name} PLEASE: wants HEAL for ${t ? t.name : "someone"}.`);
   }else{
-    await roomRef.child("pendingPlease").set({ type:"skip", fromId: myId, t: now() });
-    feedPush(`${me.name} requested SKIP FAIL (team shield).`);
+    feedPush(`${me.name} PLEASE: wants SKIP FAIL for next FAIL (target: team).`);
   }
 
   setOverlay("pleaseOverlay", false);
@@ -2270,16 +2258,27 @@ function openRoleAction(){
       feedPush(!room.soundOn ? "Sound ON." : "Sound OFF.");
     };
     body.appendChild(soundBtn);
-
-    // pending please
+    // pending please (item / heal / skip fail)
     const pp = room.pendingPlease;
     if(pp){
       const from = room.players && room.players[pp.fromId];
-      const it = itemById[pp.itemId] || {name:pp.itemId, icon:"❓"};
+      const kind = pp.kind || "item";
 
       const box = document.createElement("div");
       box.className = "muted";
-      box.innerHTML = `<b>Pending Please:</b> ${from?from.name:"?"} wants ${it.icon} ${it.name}.`;
+
+      let desc = "";
+      if(kind==="item"){
+        const it = itemById[pp.itemId] || {name:pp.itemId, icon:"❓"};
+        desc = `${it.icon} ${it.name}`;
+      }else if(kind==="heal"){
+        const t = room.players && room.players[pp.targetId];
+        desc = `❤️ Heal ${t ? t.name : "?"} (+1❤️)`;
+      }else{
+        desc = `🛡️ Skip next FAIL (team shield)`;
+      }
+
+      box.innerHTML = `<b>Pending Please:</b> ${from?from.name:"?"} → ${desc}`;
       body.appendChild(box);
 
       const row = document.createElement("div");
@@ -2298,43 +2297,42 @@ function openRoleAction(){
         if(!fresh || !fresh.pendingPlease) return alert("No pending request.");
         if((fresh.supply||0) < cost) return alert("Not enough Supply.");
 
-        const pp2 = fresh.pendingPlease;
-        const fromId = pp2.fromId;
-        const recv = fresh.players && fresh.players[fromId];
-        if(!recv) return alert("Player missing.");
+        const req = fresh.pendingPlease;
+        const reqKind = req.kind || "item";
+        const fromId = req.fromId;
 
-        // charge supply
-        await roomRef.child("supply").transaction(s=> Math.max(0, (s||0) - cost));
-
-        if(pp2.type==="heal"){
-          const targetId = pp2.targetId;
-          const tgt = fresh.players && fresh.players[targetId];
-          if(!tgt || tgt.role==="Challenger") return alert("Bad target.");
-          await roomRef.child("players").child(targetId).child("hearts").transaction(h=> clamp((h||0)+1, 0, 3));
-          feedPush(`Challenger approved HEAL (+1❤️).`);
-        }else if(pp2.type==="skip"){
-          await roomRef.child("skipFailActive").set({ active:true, t: now(), fromId });
-          feedPush(`Challenger approved SKIP FAIL (next FAIL cancelled).`);
-        }else{
-          const itemId = pp2.itemId;
+        if(reqKind==="item"){
+          const itemId = req.itemId;
           const stash = fresh.stash || {};
           if((stash[itemId]||0) <= 0) return alert("Item not in stash.");
+          const recv = fresh.players && fresh.players[fromId];
+          if(!recv) return alert("Player missing.");
           if(!canAddItem(recv, itemId)) return alert("Receiver inventory full.");
 
           await roomRef.child("stash").child(itemId).transaction(v=>{
-            const cur = v||0;
-            if(cur<=0) return;
-            return cur-1;
+            const n = (v||0)-1; return (n<=0)?null:n;
           });
           await addItemToInv(roomRef.child("players").child(fromId), itemId, 1);
-          feedPush(`Challenger approved item: ${itemById[itemId]?.name||itemId}.`);
+          feedPush(`Challenger approved Please: ${recv.name} got ${itemById[itemId]?.name||itemId} (cost ${cost}).`);
+        }
+        else if(reqKind==="heal"){
+          const tid = req.targetId;
+          const tgt = fresh.players && fresh.players[tid];
+          if(!tgt) return alert("Target missing.");
+          await roomRef.child("players").child(tid).child("hearts").transaction(h=> Math.min(START_HEARTS, (h||0)+1));
+          feedPush(`Challenger approved Please: Heal +1❤️ to ${tgt.name} (cost ${cost}).`);
+        }
+        else { // skip
+          await roomRef.child("skipFail").set(true);
+          feedPush(`Challenger approved Please: Next FAIL will be skipped (cost ${cost}).`);
         }
 
-        // increment usedPlease
-        await roomRef.child("usedPlease").child(fromId).transaction(v=> (v||0)+1);
+        // consume supply + mark use
+        await roomRef.child("supply").transaction(s=>(s||0)-cost);
+        await roomRef.child("usedPlease").child(fromId).transaction(x=>(x||0)+1);
 
-        // clear pending
         await roomRef.child("pendingPlease").set(null);
+        openRoleAction();
       };
       row.appendChild(approve);
       body.appendChild(row);
@@ -2358,6 +2356,7 @@ function openRoleAction(){
     setOverlay("roleOverlay", true);
     return;
   }
+
 
   // Survivor roles
   el("roleTitle").textContent = `${me.role} Action`;
@@ -2465,37 +2464,35 @@ function openFinderCards(){
 }
 
 function randomLootFor(role){
-  // 60% common, 30% situational, 10% strong utility
-  const common = ["wood","food","grass","stones","rope"];
-  const situational = ["torch","meat","herb","honey","trap"];
-  const strong = ["spear","shield","trap","__HEAL__"];
+  // Loot design:
+  // 60% common, 30% situational, 10% strong utility (comeback-friendly, not guaranteed)
+  const common = ["grass","wood","stones","food","rope"];
+  const situational = ["torch","herb","honey","meat","trap"];
+  const strong = ["heal","supply","spear"]; // utility, not always usable
 
-  // role tilt (small, not OP)
-  const roll = Math.random();
-  let tier;
-  if(roll < 0.60) tier = "common";
-  else if(roll < 0.90) tier = "situational";
-  else tier = "strong";
-
-  // mild comeback: if Finder is at 1❤️, slightly boost strong chance
-  // (kept subtle)
-  if(myCache && myCache.role==="Finder" && (myCache.hearts||0) <= 1){
-    const r2 = Math.random();
-    if(r2 < 0.06) tier = "strong";
-  }
-
-  let table = (tier==="common") ? common.slice() : (tier==="situational" ? situational.slice() : strong.slice());
+  // role bias (small)
+  let c = common.slice();
+  let s = situational.slice();
+  let u = strong.slice();
 
   if(role==="Miner"){
-    table.push("stones","stones");
+    c.push("stones","stones","stones");
+    s.push("stones");
   }
   if(role==="Farmer"){
-    table.push("food","food","meat");
+    c.push("food","food","grass");
+    s.push("meat","honey");
   }
   if(role==="Builder"){
-    table.push("wood","wood","rope");
+    c.push("wood","wood","rope");
   }
-  return table[Math.floor(Math.random()*table.length)];
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  const r = Math.random();
+  if(r < 0.60) return pick(c);
+  if(r < 0.90) return pick(s);
+  return pick(u);
 }
 
 async function pickFinderCard(cardBtn){
@@ -2511,16 +2508,6 @@ async function pickFinderCard(cardBtn){
 
   const loot = randomLootFor(me.role);
   const pRef = roomRef.child("players").child(myId);
-
-  // special: heart heal
-  if(loot==="__HEAL__"){
-    await pRef.child("hearts").transaction(h=> clamp((h||0)+1, 0, 3));
-    feedPush(`${me.name} found a Healing charm (+1❤️).`);
-    cardBtn.classList.add("reveal");
-    localStorage.setItem(key,"1");
-    setTimeout(()=> setOverlay("finderOverlay", false), 600);
-    return;
-  }
 
   // check slots
   const freshMe = await pRef.get().then(s=>s.val());
