@@ -358,6 +358,12 @@
   }
 
 .btnDisabled{opacity:.55; filter:saturate(.8);}
+
+.quickChat{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.qcBtn{ flex:1 1 auto; padding:10px 10px; border-radius:12px; border:2px solid rgba(0,0,0,.18); background:rgba(255,255,255,.75); font-weight:900; }
+.qcBtn:active{ transform:scale(.98); }
+.teamSummary{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.teamPill{ padding:8px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.18); background:rgba(255,255,255,.65); font-weight:900; font-size:13px; }
 </style>
 </head>
 
@@ -409,6 +415,12 @@
   <div class="card">
     <div class="cardHeader">Room Feed</div>
     <div class="cardBody">
+      <div id="teamSummary" class="teamSummary"></div>
+      <div id="quickChat" class="quickChat">
+        <button id="qcReady" class="qcBtn">✅ Ready</button>
+        <button id="qcSpear" class="qcBtn">🗡️ I have Spear</button>
+        <button id="qcStones" class="qcBtn">🪨 I have Stones</button>
+      </div>
       <div id="feedList"></div>
     </div>
   </div>
@@ -721,7 +733,7 @@ function feedPush(text){
   ref.transaction((cur)=>{
     const arr = Array.isArray(cur) ? cur.slice() : [];
     arr.unshift({t: now(), text});
-    return arr.slice(0,3); // LIMIT 3
+    return arr.slice(0,5); // LIMIT 5
   });
 }
 
@@ -1017,7 +1029,7 @@ function renderUI(room){
   // Attack: only in night phase for survivors alive, and only if attacker not chosen yet
   const attackerChosen = !!room.attackerId;
   el("btnAttack").style.display = (me.role!=="Challenger") ? "block" : "none";
-  el("btnAttack").disabled = !(room.phase==="night" && isAlive && !attackerChosen);
+  el("btnAttack").disabled = !(room.phase==="night" && isAlive && !room.attackerId && (!room.attackTurn || room.attackTurn===myId));
 
   // Challenger controls
   el("btnPickChallenge").style.display = isCh ? "block" : "none";
@@ -1406,7 +1418,9 @@ function openAttackModal(){
   const me = myCache;
   if(!room || !me) return;
   if(me.role==="Challenger") return;
-  if(room.phase!=="night") return;
+  if(room.phase!=="night") { feedPush("Attack is only available during NIGHT."); return; }
+  if(room.attackerId){ feedPush("Attack already used this night."); return; }
+  if(room.attackTurn && room.attackTurn!==myId){ feedPush("Not your turn to attack. Wait for Challenger."); return; }
   if(room.fear && room.fear[myId]) { feedPush("😨 FEARED: you cannot attack this turn."); return; }
 
   // list weapons in inventory
@@ -2294,6 +2308,79 @@ el("btnPickChallenge").onclick = ()=> openChallengePicker();
 /* =========================
    MOBILE: prevent double sound spam
    ========================= */
+
+
+/* =========================
+   QUICK CHAT + TEAM SUMMARY
+   ========================= */
+function renderTeamSummary(room){
+  const box = el("teamSummary");
+  if(!box) return;
+  const me = myCache;
+  if(!room || !room.players || !me) { box.innerHTML=""; return; }
+  // Show only 3 key items team-wide: spear, stones, food
+  let spear=0, stones=0, food=0;
+  Object.values(room.players).forEach(p=>{
+    if(!p || p.role==="Challenger" || (p.hearts||0)<=0) return;
+    const inv=p.inventory||{};
+    spear += (inv.spear||0);
+    stones += (inv.stones||0);
+    food  += (inv.food||0) + (inv.meat||0) + (inv.honey||0);
+  });
+  box.innerHTML = `
+    <span class="teamPill">🗡️ Spears: ${spear}</span>
+    <span class="teamPill">🪨 Stones: ${stones}</span>
+    <span class="teamPill">🍞 Food: ${food}</span>
+  `;
+}
+
+let qcCooldown = 0;
+function qcSend(text){
+  const t = now();
+  if(t < qcCooldown) return;
+  qcCooldown = t + 1500;
+  feedPush(text);
+}
+function bindQuickChat(){
+  const b1=el("qcReady"), b2=el("qcSpear"), b3=el("qcStones");
+  if(b1) b1.onclick = ()=>{ if(myCache) qcSend(`✅ ${myCache.name} READY`); };
+  if(b2) b2.onclick = ()=>{ if(myCache) qcSend(`🗡️ ${myCache.name}: I HAVE SPEAR (${(myCache.inventory&&myCache.inventory.spear)||0})`); };
+  if(b3) b3.onclick = ()=>{ if(myCache) qcSend(`🪨 ${myCache.name}: I HAVE STONES (${(myCache.inventory&&myCache.inventory.stones)||0})`); };
+}
+
+/* =========================
+   CHALLENGER: CHOOSE ATTACKER
+   ========================= */
+function openAttackerPicker(){
+  const room = roomCache; const me=myCache;
+  if(!room || !me) return;
+  if(me.role!=="Challenger") return;
+  if(room.phase!=="night") { feedPush("Choose attacker during NIGHT."); return; }
+  const sel = el("attackerSelect");
+  if(!sel) return;
+  sel.innerHTML = "";
+  const players = Object.values(room.players||{}).filter(p=>p && p.role!=="Challenger" && (p.hearts||0)>0);
+  players.forEach(p=>{
+    const opt=document.createElement("option");
+    opt.value=p.id;
+    opt.textContent=`${p.name} ${heartsText(p.hearts||0)}`;
+    sel.appendChild(opt);
+  });
+  if(room.attackTurn) sel.value = room.attackTurn;
+  setOverlay("attackerOverlay", true);
+}
+if(el("btnPickAttacker")) el("btnPickAttacker").onclick = openAttackerPicker;
+if(el("attackerCancel")) el("attackerCancel").onclick = ()=>setOverlay("attackerOverlay", false);
+if(el("attackerConfirm")) el("attackerConfirm").onclick = async ()=>{
+  const room=roomCache; const me=myCache;
+  if(!room || !me || me.role!=="Challenger") return;
+  const target = el("attackerSelect").value;
+  if(!target) return;
+  await roomRef.child("attackTurn").set(target);
+  feedPush(`🎯 Challenger chose attacker.`);
+  setOverlay("attackerOverlay", false);
+};
+
 </script>
 
 </body>
