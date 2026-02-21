@@ -394,7 +394,7 @@
       <div class="pill"><span class="k">Phase</span><span class="v" id="uiPhase">lobby</span></div>
       <div class="pill"><span class="k">Role</span><span class="v" id="uiRole">—</span></div>
 
-      <div class="pill"><span class="k">Night</span><span class="v" id="uiNight">0/5</span></div>
+      <div class="pill"><span class="k">Night</span><span class="v" id="uiNight">0/7</span></div>
       <div class="pill"><span class="k">Fails</span><span class="v" id="uiFails">0</span></div>
 
       <div class="pill"><span class="k">Event</span><span class="v" id="uiEvent">—</span></div>
@@ -446,6 +446,7 @@
 <div id="actionBar" style="display:none;">
   <div id="actionGrid">
     <button id="btnInventory">Inventory</button>
+    <button id="btnCraft">Craft</button>
     <button id="btnTrade">Trade</button>
     <button id="btnPlease" class="btnDark">Please</button>
     <button id="btnRole" class="btnDark">Role Action</button>
@@ -456,6 +457,24 @@
     <button id="btnStartNight" class="btnRed">Start Night</button>
   </div>
 </div>
+
+
+<!-- CRAFT MODAL -->
+<div class="overlay" id="craftOverlay">
+  <div class="modal">
+    <div class="modalHead">
+      <span>Craft</span>
+      <button id="craftClose" class="btnDark" style="padding:10px 12px;border-radius:14px;">Close</button>
+    </div>
+    <div class="modalBody">
+      <div class="muted">Crafting is available in <b>Lobby</b> or <b>Prep</b> only.</div>
+      <select id="craftSelect"></select>
+      <button id="craftBtn" class="btnGreen">Craft</button>
+      <div class="muted" id="craftInfo"></div>
+    </div>
+  </div>
+</div>
+
 
 <!-- AUDIO (mp3) -->
 <audio id="bgm" src="assets/survival.mp3" loop preload="auto"></audio>
@@ -630,7 +649,7 @@ const STARVE_TICK_SEC = 10;
 
 const ITEMS = [
   {id:"spear", name:"Spear", icon:"🗡️", type:"weapon", dmg:2},
-  {id:"axe", name:"Axe", icon:"🪓", type:"weapon", dmg:1},
+  {id:"axe", name:"Axe", icon:"🪓", type:"weapon", dmg:2},
   {id:"trap", name:"Trap", icon:"🪤", type:"weapon", dmg:3, oneUse:true},
   {id:"torch", name:"Torch", icon:"🔥", type:"weapon", dmg:1},
   {id:"shield", name:"Shield", icon:"🛡️", type:"utility"},
@@ -736,6 +755,147 @@ function feedPush(text){
     return arr.slice(0,5); // LIMIT 5
   });
 }
+
+
+/* =========================
+   QUICK CHAT + TEAM SUMMARY
+   ========================= */
+let _qcBound = false;
+function bindQuickChat(){
+  if(_qcBound) return;
+  _qcBound = true;
+
+  const btnReady = el("qcReady");
+  const btnSpear = el("qcSpear");
+  const btnStones = el("qcStones");
+
+  if(btnReady) btnReady.onclick = ()=>{
+    const me = myCache; if(!me) return;
+    feedPush(`✅ ${me.name}: READY`);
+  };
+  if(btnSpear) btnSpear.onclick = ()=>{
+    const me = myCache; if(!me) return;
+    const n = (me.inventory && me.inventory.spear) ? me.inventory.spear : 0;
+    feedPush(`🗡️ ${me.name}: I have Spear (${n})`);
+  };
+  if(btnStones) btnStones.onclick = ()=>{
+    const me = myCache; if(!me) return;
+    const n = (me.inventory && me.inventory.stones) ? me.inventory.stones : 0;
+    feedPush(`🪨 ${me.name}: I have Stones (${n})`);
+  };
+}
+
+function renderTeamSummary(room){
+  const wrap = el("teamSummary");
+  if(!wrap) return;
+  wrap.innerHTML = "";
+  const ps = Object.values(room.players||{}).filter(p=>p && p.role!=="Challenger");
+  ps.forEach(p=>{
+    const spear = (p.inventory && p.inventory.spear) ? p.inventory.spear : 0;
+    const stones = (p.inventory && p.inventory.stones) ? p.inventory.stones : 0;
+    const food = (p.inventory && p.inventory.food) ? p.inventory.food : 0;
+    const pill = document.createElement("div");
+    pill.className = "teamPill";
+    pill.textContent = `${p.name}: 🗡️${spear} 🪨${stones} 🍞${food}`;
+    wrap.appendChild(pill);
+  });
+}
+
+/* =========================
+   CRAFTING
+   ========================= */
+const CRAFTS = [
+  { id:"spear", label:"🗡️ Spear (2 dmg)", gives:{spear:1}, costs:{wood:1, stones:1} },
+  { id:"axe",   label:"🪓 Axe (2 dmg)",   gives:{axe:1},   costs:{wood:2, stones:1} },
+  { id:"trap",  label:"🪤 Trap (3 dmg, one-use)", gives:{trap:1}, costs:{wood:1, rope:1} },
+];
+
+el("btnCraft").onclick = ()=> openCraft();
+el("craftClose").onclick = ()=> setOverlay("craftOverlay", false);
+
+function openCraft(){
+  const room = roomCache;
+  const me = myCache;
+  if(!room || !me) return;
+  if(me.role==="Challenger") return alert("Only Survivors can craft.");
+  if(!(room.phase==="lobby" || room.phase==="prep")) return alert("Craft only in Lobby/Prep.");
+
+  const sel = el("craftSelect");
+  sel.innerHTML = "";
+  CRAFTS.forEach(r=>{
+    const opt = document.createElement("option");
+    opt.value = r.id;
+    opt.textContent = r.label;
+    sel.appendChild(opt);
+  });
+  updateCraftInfo();
+  sel.onchange = updateCraftInfo;
+  setOverlay("craftOverlay", true);
+}
+
+function updateCraftInfo(){
+  const me = myCache;
+  const id = el("craftSelect").value;
+  const r = CRAFTS.find(x=>x.id===id);
+  if(!r || !me) return;
+  const inv = me.inventory || {};
+  const need = Object.entries(r.costs).map(([k,v])=>{
+    const have = inv[k]||0;
+    return `${itemById[k]?.icon||""} ${k}: ${have}/${v}`;
+  }).join(" • ");
+  el("craftInfo").textContent = "Costs: " + need;
+}
+
+el("craftBtn").onclick = async ()=>{
+  const room = roomCache;
+  const me = myCache;
+  if(!room || !me) return;
+  if(me.role==="Challenger") return;
+  if(!(room.phase==="lobby" || room.phase==="prep")) return alert("Craft only in Lobby/Prep.");
+
+  const id = el("craftSelect").value;
+  const r = CRAFTS.find(x=>x.id===id);
+  if(!r) return;
+
+  if(!canAddItem(me, id)) return alert("Inventory full. Trade or use items.");
+
+  const inv = me.inventory || {};
+  for(const [k,v] of Object.entries(r.costs)){
+    if((inv[k]||0) < v) return alert("Not enough materials.");
+  }
+
+  const pRef = roomRef.child("players").child(myId);
+  for(const [k,v] of Object.entries(r.costs)){
+    await removeItemFromInv(pRef, k, v);
+  }
+  for(const [k,v] of Object.entries(r.gives)){
+    await addItemToInv(pRef, k, v);
+  }
+  feedPush(`${me.name} crafted ${itemById[id]?.name||id}.`);
+  openCraft();
+};
+
+/* =========================
+   NIGHT BALANCE TABLE
+   ========================= */
+function scaledAnimal(base, night){
+  const a = { ...base };
+  if(night === 6){
+    a.hp = (a.hp||0) + 2;
+    a.maxHp = a.hp;
+    a.dmg = Math.max(a.dmg||0, 3);
+    a.note = (a.note ? a.note + " • " : "") + "Tier+";
+  }
+  if(night === 7){
+    const alive = Object.values(roomCache?.players||{}).filter(p=>p.role!=="Challenger" && (p.hearts||0)>0 && p.alive!==false).length || 1;
+    a.hp = 12 + alive;
+    a.maxHp = a.hp;
+    a.dmg = 2;
+    a.note = "FINAL DUEL: hits 1 target • abilities";
+  }
+  return a;
+}
+
 
 function invToArray(invObj){
   const arr = [];
@@ -942,6 +1102,8 @@ function listenRoom(){
     myCache = (room.players && room.players[myId]) ? room.players[myId] : null;
 
     renderUI(room);
+    bindQuickChat();
+    renderTeamSummary(room);
     handleStarvation(room);
     handleWinLose(room);
     handlePendingPleaseUI(room);
@@ -1441,7 +1603,8 @@ el("btnStartNight").onclick = async ()=>{
   const chosenId = picked[Math.floor(Math.random()*picked.length)];
   const chosen = pool.find(a=>a.id===chosenId) || pool[0];
 
-  const animal = { ...chosen, maxHp: chosen.hp, hp: chosen.hp };
+  let animal = { ...chosen, maxHp: chosen.hp, hp: chosen.hp };
+  animal = scaledAnimal(animal, nextNight);
 
   const event = randomEventForNight(nextNight);
   const timerEnd = now() + 45*1000;
