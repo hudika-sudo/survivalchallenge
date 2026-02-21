@@ -873,6 +873,7 @@ el("joinBtn").onclick = async ()=>{
   feedPush(`${myName} joined as ${role}.`);
 
   listenRoom();
+  startTimerWatchdog();
 };
 
 /* =========================
@@ -948,6 +949,81 @@ function listenRoom(){
 }
 
 /* =========================
+   TIMER WATCHDOG (server clock)
+   Ends PREP/NIGHT even if nobody clicks
+   ========================= */
+let watchdogStarted = false;
+function startTimerWatchdog(){
+  if(watchdogStarted) return;
+  watchdogStarted = true;
+
+  setInterval(async ()=>{
+    try{
+      if(!roomRef) return;
+      const room = roomCache;
+      if(!room) return;
+      if(room.gameEnded) return;
+
+      if((room.phase==="night" || room.phase==="prep") && room.timerEnd){
+        const tEnd = room.timerEnd;
+        if(now() >= tEnd){
+          // lock so only one client resolves
+          const lock = await roomRef.child("timerLock").transaction(cur=>{
+            if(cur && (now()-cur) < 15000) return; // already resolved recently
+            return now();
+          });
+          if(!lock.committed) return;
+
+          const fresh = await roomRef.once("value").then(s=>s.val());
+          if(!fresh || !fresh.timerEnd) return;
+
+          if(fresh.phase==="prep"){
+            await resolvePrep();
+            return;
+          }
+          if(fresh.phase==="night"){
+            const a = fresh.animal;
+            const success = !!(a && (a.hp||0) <= 0);
+            await resolveNight(success);
+          }
+        }
+      }
+    }catch(e){
+      // ignore
+    }
+  }, 700);
+}
+
+async function resolvePrep(){
+  const room = await roomRef.once("value").then(s=>s.val());
+  if(!room) return;
+  if(room.phase!=="prep") return;
+
+  const survivors = Object.values(room.players||{}).filter(p=>p.role!=="Challenger" && (p.hearts||0)>0 && p.alive!==false);
+
+  // everyone gets a tiny baseline so Night 2 is playable (still "starts with nothing")
+  for(const s of survivors){
+    await roomRef.child(`players/${s.id}/inventory/wood`).transaction(v=>(v||0)+1);
+    await roomRef.child(`players/${s.id}/inventory/stones`).transaction(v=>(v||0)+1);
+  }
+  feedPush("⛺ Prep finished: everyone got +1 Wood +1 Stones.");
+
+  await roomRef.update({
+    phase: "lobby",
+    timerEnd: null,
+    attackerId: null,
+    attackTurn: null,
+    animal: null,
+    challenge: null
+  });
+
+  for(const s of survivors){
+    await roomRef.child("players").child(s.id).child("ready").set(false);
+  }
+}
+
+
+/* =========================
    UI RENDER
    ========================= */
 function renderUI(room){
@@ -980,7 +1056,7 @@ function renderUI(room){
   const feed = Array.isArray(room.feed) ? room.feed : [];
   const feedList = el("feedList");
   feedList.innerHTML = "";
-  feed.slice(0,3).forEach(f=>{
+  feed.slice(0,5).forEach(f=>{
     const div = document.createElement("div");
     div.className = "feedItem";
     div.textContent = f.text;
@@ -1035,7 +1111,7 @@ function renderUI(room){
   el("btnPickChallenge").style.display = isCh ? "block" : "none";
   el("btnStartNight").style.display = isCh ? "block" : "none";
   el("btnPickChallenge").disabled = !(isCh && room.phase==="lobby" && (room.night||0) < MAX_NIGHTS);
-  el("btnStartNight").disabled = !(isCh && room.phase==="lobby" && room.challenge && room.challenge.picks && room.challenge.picks.length===2);
+  el("btnStartNight").disabled = !(isCh && room.phase==="lobby" && ((room.night||0)===0 || (room.challenge && room.challenge.picks && room.challenge.picks.length===2)));
 
   // if not challenger hide supply/power controls (still shown as stats)
 }
@@ -1083,7 +1159,7 @@ function handleWinLose(room){
     const alive = survivors.filter(p => (p.alive!==false) && (p.hearts||0)>0).length;
     if(alive>0 && !room.gameEnded){
       roomRef.child("gameEnded").set("WIN");
-      feedPush("Survivors WIN! Night 5 survived.");
+      feedPush(`Survivors WIN! Night ${MAX_NIGHTS} survived.`);
       showWinVideo();
     }
   }
@@ -1330,34 +1406,45 @@ el("btnStartNight").onclick = async ()=>{
   if(!room || room.challengerId !== myId) return;
   if(room.phase !== "lobby") return;
 
-  // require survivors exist
-  const survivors = Object.values(room.players||{}).filter(p=>p.role!=="Challenger");
+  const nextNight = (room.night||0) + 1;
+  if(nextNight > MAX_NIGHTS) return;
+
+  // require at least 1 Survivor
+  const survivors = Object.values(room.players||{}).filter(p=>p.role!=="Challenger" && (p.hearts||0)>0 && p.alive!==false);
   if(survivors.length < 1) return alert("Need at least 1 Survivor.");
 
-  // pick chosen animal from 2 picks
+  // NIGHT 1 = PREP (Option 1): no animal, long timer so people can join + prepare
+  if(nextNight === 1){
+    const timerEnd = now() + 90*1000; // 90s prep
+    await roomRef.update({
+      phase: "prep",
+      night: 1,
+      event: "Camp Setup",
+      timerEnd,
+      attackerId: null,
+      attackTurn: null,
+      animal: null,
+      challenge: null,
+      houseActive: false
+    });
+    feedPush("⛺ Night 1 PREP started (90s). Use roles, trade and Please to prepare.");
+    return;
+  }
+
+  // from Night 2+ Challenger must pick 2 animals first
   if(!room.challenge || !room.challenge.picks || room.challenge.picks.length!==2){
     return alert("Pick Challenge first.");
   }
 
-  const nextNight = (room.night||0) + 1;
-  if(nextNight > MAX_NIGHTS) return;
-
-  // random choose 1 of picks
   const pool = POOLS[clamp(nextNight,1,5)];
   const picked = room.challenge.picks;
   const chosenId = picked[Math.floor(Math.random()*picked.length)];
   const chosen = pool.find(a=>a.id===chosenId) || pool[0];
 
-  // set animal state
-  const animal = {
-    ...chosen,
-    maxHp: chosen.hp,
-    hp: chosen.hp
-  };
+  const animal = { ...chosen, maxHp: chosen.hp, hp: chosen.hp };
 
-  // set phase night, event, timer end, reset attacker
   const event = randomEventForNight(nextNight);
-  const timerEnd = now() + ((nextNight===1)?90:45)*1000; // Night1 longer (90s), others 45s
+  const timerEnd = now() + 45*1000;
 
   await roomRef.update({
     phase: "night",
@@ -1368,32 +1455,21 @@ el("btnStartNight").onclick = async ()=>{
     attackTurn: null,
     animal,
     challenge: { ...room.challenge, chosen: chosenId },
-    houseActive: false
+    houseActive: false,
+    pendingFail: null
   });
 
-  // boss pre-hit (night 5): all survivors -1 heart
-  if(nextNight === 5){
+  // Boss pre-hit on final night: small pressure but not impossible
+  if(nextNight === MAX_NIGHTS){
     for(const s of survivors){
       if((s.hearts||0)>0 && s.alive!==false){
-        await roomRef.child("players").child(s.id).child("hearts").transaction(h=>(h||0)-1);
+        await roomRef.child("players").child(s.id).child("hearts").transaction(h=>Math.max(0,(h||0)-1));
       }
     }
-    feedPush("Boss fear hit! All Survivors -1 heart.");
+    feedPush("Final night fear hit! All Survivors -1❤️.");
   }
 
-  feedPush(`Night ${nextNight} started: ???`);
-
-  // AUTO-SET ATTACK TURN (so Attack always works)
-  try{
-    const fresh = await roomRef.once("value").then(s=>s.val());
-    const alive = Object.values(fresh.players||{}).filter(p=>p.role!=="Challenger" && (p.hearts||0)>0 && p.alive!==false);
-    if(alive.length){
-      const pick = alive[Math.floor(Math.random()*alive.length)];
-      await roomRef.child("attackTurn").set(pick.id);
-      feedPush(`Attacker chosen: ${pick.name}`);
-    }
-  }catch(e){}
-
+  feedPush(`Night ${nextNight} started: ${chosen.name} (${chosen.hp} HP).`);
 };
 
 /* =========================
